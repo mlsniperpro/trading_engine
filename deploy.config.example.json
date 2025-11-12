@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "production": "95.216.123.456",
+    "staging": "95.216.123.457"
+  },
+  "default_server": null,
+  "app_user": "algoengine",
+  "app_dir": "/home/algoengine/trading_engine",
+  "python_version": "3.12"
+}

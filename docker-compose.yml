@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  trading-engine:
+    build: .
+    container_name: trading-engine
+    ports:
+      - "8000:8000"
+    # Load environment variables from .env file
+    env_file:
+      - .env
+    # Override specific settings for production
+    environment:
+      - ENVIRONMENT=production
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    # Security: Run as non-root user
+    user: "1000:1000"
+    # Security: Read-only root filesystem
+    read_only: true
+    # Writable temp directories
+    tmpfs:
+      - /tmp
+      - /run
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

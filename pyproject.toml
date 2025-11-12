@@ -1,0 +1,25 @@
+[project]
+name = "trading-engine"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "MrAlgadros", email = "algadrosinc@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.121.1",
+    "uvicorn>=0.38.0",
+    "hcloud>=1.35.0",
+    "python-dotenv>=1.2.1",
+]
+
+[project.scripts]
+start = "trading_engine:main"
+trading-engine = "trading_engine:main"
+deploy = "trading_engine.deploy_docker:main"
+hetzner-setup = "trading_engine.hetzner:main"
+
+[build-system]
+requires = ["uv_build>=0.9.9,<0.10.0"]
+build-backend = "uv_build"
