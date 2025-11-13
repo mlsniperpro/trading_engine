@@ -18,7 +18,9 @@ from typing import Callable, Optional, Dict, List
 from datetime import datetime
 
 from solana.rpc.websocket_api import connect
+from solana.rpc.commitment import Confirmed
 from solders.pubkey import Pubkey
+from solders.rpc.config import RpcTransactionLogsFilterMentions
 from dotenv import load_dotenv
 import yaml
 
@@ -228,9 +230,10 @@ class OrcaStream:
 
         try:
             # Subscribe to Orca Whirlpool program logs
+            filter_mentions = RpcTransactionLogsFilterMentions([self.program_id])
             await self._ws.logs_subscribe(
-                filter_={"mentions": [str(self.program_id)]},
-                commitment="confirmed"
+                filter_=filter_mentions,
+                commitment=Confirmed
             )
 
             logger.info("✓ Subscribed to Orca Whirlpool program logs")

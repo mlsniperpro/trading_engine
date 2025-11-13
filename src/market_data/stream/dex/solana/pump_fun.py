@@ -17,8 +17,10 @@ from typing import Callable, Optional, Dict, List
 from datetime import datetime
 
 from solana.rpc.websocket_api import connect
+from solana.rpc.commitment import Confirmed
 from solders.pubkey import Pubkey
 from solders.signature import Signature
+from solders.rpc.config import RpcTransactionLogsFilterMentions
 from dotenv import load_dotenv
 import yaml
 
@@ -367,9 +369,10 @@ class PumpFunStream:
         try:
             # Subscribe to Pump.fun program account updates
             # This monitors all transactions involving the Pump.fun program
+            filter_mentions = RpcTransactionLogsFilterMentions([self.program_id])
             await self._ws.logs_subscribe(
-                filter_={"mentions": [str(self.program_id)]},
-                commitment="confirmed"
+                filter_=filter_mentions,
+                commitment=Confirmed
             )
 
             logger.info("✓ Subscribed to Pump.fun program logs")
