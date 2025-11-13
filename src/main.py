@@ -178,10 +178,19 @@ async def startup_event():
         # Initialize market data manager
         logger.info("Initializing market data manager...")
         market_manager = MarketDataManager(
+            # DEX streams - All enabled!
             enable_uniswap_v3=True,
-            enable_binance=True,
+            enable_curve=True,
+            enable_sushiswap=True,
+            enable_balancer=True,
             uniswap_pools=["ETH-USDC-0.3%", "ETH-USDT-0.3%"],
+            curve_pools=["stETH", "frxETH"],
+            sushiswap_pairs=["ETH-USDC", "ETH-USDT"],
+            balancer_pools=["BAL-WETH"],
+            # CEX streams
+            enable_binance=True,
             binance_symbols=["ETH-USDT"],
+            # Settings
             arbitrage_threshold_pct=0.3,
         )
 
@@ -239,9 +248,9 @@ def main():
     print("=" * 70)
     print("\nComponents:")
     print("  • FastAPI server on http://0.0.0.0:8000")
-    print("  • DEX stream (Uniswap V3)")
-    print("  • CEX stream (Binance)")
-    print("  • Arbitrage detection")
+    print("  • DEX streams: Uniswap V3, Curve, SushiSwap, Balancer")
+    print("  • CEX stream: Binance")
+    print("  • Cross-DEX arbitrage detection")
     print("\nEndpoints:")
     print("  • GET /          - System status")
     print("  • GET /health    - Health check")
