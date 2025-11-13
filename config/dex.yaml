@@ -1,0 +1,249 @@
+# Ethereum DEX Configuration
+# Supports top 4 Ethereum DEXs for arbitrage opportunities
+
+chain: ethereum
+network: mainnet
+
+# ============================================================================
+# 1. UNISWAP V3 - Market Leader ($39.7B weekly volume, $5.44B TVL)
+# ============================================================================
+uniswap_v3:
+  enabled: true
+  version: 3
+
+  # Router addresses
+  routers:
+    v3_router: "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+    swap_router_02: "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45"
+
+  # Major ETH trading pools
+  pools:
+    ETH-USDC-0.3%:
+      address: "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640"
+      token0: USDC
+      token1: WETH
+      decimals0: 6
+      decimals1: 18
+      fee_tier: 0.3
+
+    ETH-USDC-0.05%:
+      address: "0x7BeA39867e4169DBe237d55C8242a8f2fcDcc387"
+      token0: USDC
+      token1: WETH
+      decimals0: 6
+      decimals1: 18
+      fee_tier: 0.05
+
+    ETH-USDT-0.3%:
+      address: "0x4e68Ccd3E89f51C3074ca5072bbAC773960dFa36"
+      token0: WETH
+      token1: USDT
+      decimals0: 18
+      decimals1: 6
+      fee_tier: 0.3
+
+    ETH-USDT-0.05%:
+      address: "0xc5aF84701f98Fa483eCe78aF83F11b6C38ACA71D"
+      token0: WETH
+      token1: USDT
+      decimals0: 18
+      decimals1: 6
+      fee_tier: 0.05
+
+    ETH-DAI-0.3%:
+      address: "0xC2e9F25Be6257c210d7Adf0D4Cd6E3E881ba25f8"
+      token0: WETH
+      token1: DAI
+      decimals0: 18
+      decimals1: 18
+      fee_tier: 0.3
+
+  # Uniswap V3 Pool ABI (Swap event + slot0 function)
+  pool_abi:
+    - anonymous: false
+      inputs:
+        - indexed: true
+          name: sender
+          type: address
+        - indexed: true
+          name: recipient
+          type: address
+        - indexed: false
+          name: amount0
+          type: int256
+        - indexed: false
+          name: amount1
+          type: int256
+        - indexed: false
+          name: sqrtPriceX96
+          type: uint160
+        - indexed: false
+          name: liquidity
+          type: uint128
+        - indexed: false
+          name: tick
+          type: int24
+      name: Swap
+      type: event
+
+    - inputs: []
+      name: slot0
+      outputs:
+        - name: sqrtPriceX96
+          type: uint160
+        - name: tick
+          type: int24
+        - name: observationIndex
+          type: uint16
+        - name: observationCardinality
+          type: uint16
+        - name: observationCardinalityNext
+          type: uint16
+        - name: feeProtocol
+          type: uint8
+        - name: unlocked
+          type: bool
+      stateMutability: view
+      type: function
+
+
+# ============================================================================
+# 2. CURVE FINANCE - Stablecoin Specialist ($2.4B weekly volume, $2.1B TVL)
+# ============================================================================
+curve:
+  enabled: true
+
+  # Router address
+  router: "0x99a58482bd75cbab83b27ec03ca68ff489b5788f"
+
+  # Major stablecoin pools (3pool is the largest)
+  pools:
+    # 3pool: USDC/USDT/DAI (most liquid stablecoin pool)
+    3pool:
+      address: "0xbEbc44782C7dB0a1A60Cb6fe97d0b483032FF1C7"
+      coins:
+        - USDC
+        - USDT
+        - DAI
+      decimals: [6, 6, 18]
+
+    # ETH/stETH pool (for ETH liquid staking)
+    stETH:
+      address: "0xDC24316b9AE028F1497c275EB9192a3Ea0f67022"
+      coins:
+        - ETH
+        - stETH
+      decimals: [18, 18]
+
+    # frxETH pool
+    frxETH:
+      address: "0xa1F8A6807c402E4A15ef4EBa36528A3FED24E577"
+      coins:
+        - frxETH
+        - ETH
+      decimals: [18, 18]
+
+
+# ============================================================================
+# 3. SUSHISWAP - Major AMM (Uniswap V2 fork)
+# ============================================================================
+sushiswap:
+  enabled: true
+  version: 2
+
+  # Router address
+  router: "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
+
+  # Factory address
+  factory: "0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"
+
+  # Major trading pairs
+  pairs:
+    ETH-USDC:
+      address: "0x397FF1542f962076d0BFE58eA045FfA2d347ACa0"
+      token0: WETH
+      token1: USDC
+      decimals0: 18
+      decimals1: 6
+
+    ETH-USDT:
+      address: "0x06da0fd15C3bDB29FB7bcD5F6C3bF1b9Eb38df18"
+      token0: WETH
+      token1: USDT
+      decimals0: 18
+      decimals1: 6
+
+    ETH-DAI:
+      address: "0xC3D03e4F041Fd4cD388c549Ee2A29a9E5075882f"
+      token0: WETH
+      token1: DAI
+      decimals0: 18
+      decimals1: 18
+
+
+# ============================================================================
+# 4. BALANCER V2 - Multi-token Pools
+# ============================================================================
+balancer:
+  enabled: true
+  version: 2
+
+  # Vault address (Balancer V2 uses a single vault for all pools)
+  vault: "0xBA12222222228d8Ba445958a75a0704d566BF2C8"
+
+  # Major pools
+  pools:
+    # 80/20 WETH/BAL pool
+    BAL-WETH:
+      pool_id: "0x5c6ee304399dbdb9c8ef030ab642b10820db8f56000200000000000000000014"
+      tokens:
+        - WETH
+        - BAL
+      weights: [0.8, 0.2]
+      decimals: [18, 18]
+
+    # Stable pool: USDC/USDT/DAI
+    stable-USD:
+      pool_id: "0x06df3b2bbb68adc8b0e302443692037ed9f91b42000000000000000000000063"
+      tokens:
+        - USDC
+        - USDT
+        - DAI
+      decimals: [6, 6, 18]
+
+
+# ============================================================================
+# Common Token Addresses (Ethereum Mainnet)
+# ============================================================================
+tokens:
+  WETH: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+  USDC: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
+  USDT: "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+  DAI: "0x6B175474E89094C44Da98b954EedeAC495271d0F"
+  stETH: "0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84"
+  frxETH: "0x5E8422345238F34275888049021821E8E08CAa1f"
+  BAL: "0xba100000625a3754423978a60c9317c58a424e3D"
+
+
+# ============================================================================
+# Arbitrage Configuration
+# ============================================================================
+arbitrage:
+  # Minimum price difference to trigger arbitrage signal (%)
+  min_threshold_pct: 0.3
+
+  # Maximum gas price willing to pay (gwei)
+  max_gas_price: 50
+
+  # Pairs to monitor for cross-DEX arbitrage
+  monitor_pairs:
+    - ETH/USDC
+    - ETH/USDT
+    - ETH/DAI
+
+  # DEX priority order (for routing)
+  dex_priority:
+    - uniswap_v3
+    - curve
+    - sushiswap
+    - balancer

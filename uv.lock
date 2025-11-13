@@ -1481,13 +1481,14 @@ wheels = [
 [[package]]
 name = "trading-engine"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "cryptofeed" },
     { name = "fastapi" },
     { name = "hcloud" },
     { name = "python-dotenv" },
+    { name = "pyyaml" },
     { name = "uvicorn" },
     { name = "web3" },
     { name = "websockets" },
@@ -1500,6 +1501,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.121.1" },
     { name = "hcloud", specifier = ">=1.35.0" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
+    { name = "pyyaml", specifier = ">=6.0.1" },
     { name = "uvicorn", specifier = ">=0.38.0" },
     { name = "web3", specifier = ">=7.14.0" },
     { name = "websockets", specifier = ">=15.0.1" },
