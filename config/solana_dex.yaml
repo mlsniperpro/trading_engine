@@ -1,0 +1,163 @@
+# Solana DEX Configuration
+# Top DEXs for meme coin trading on Solana
+
+chain: solana
+network: mainnet-beta
+
+# RPC Endpoints
+rpc:
+  mainnet: "https://api.mainnet-beta.solana.com"
+  # Alternative high-performance RPCs (require API keys):
+  # helius: "https://mainnet.helius-rpc.com/?api-key=YOUR_KEY"
+  # quicknode: "https://YOUR_ENDPOINT.solana-mainnet.quiknode.pro/YOUR_KEY/"
+  websocket: "wss://api.mainnet-beta.solana.com"
+
+# ============================================================================
+# 1. RAYDIUM - Market Leader (34% volume, $5.31B daily peak)
+# ============================================================================
+raydium:
+  enabled: true
+  version: "v4"
+
+  # Program IDs
+  program_id: "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"  # Raydium AMM v4
+
+  # Popular meme coin pools (will be populated dynamically)
+  pools:
+    # Example pool structure (these change frequently for meme coins)
+    # SOL-USDC:
+    #   pool_id: "58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2"
+    #   base_mint: "So11111111111111111111111111111111111111112"  # SOL
+    #   quote_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  # USDC
+
+  # Monitor top meme coin pairs by volume
+  monitor_top_pairs: true
+  min_liquidity_usd: 10000  # Minimum $10k liquidity to track
+
+
+# ============================================================================
+# 2. PUMP.FUN - #1 Meme Coin Launchpad
+# ============================================================================
+pump_fun:
+  enabled: true
+
+  # Pump.fun program ID
+  program_id: "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P"
+
+  # Bonding curve parameters
+  bonding_curve:
+    initial_virtual_sol_reserves: 30
+    initial_virtual_token_reserves: 1073000000
+    graduation_threshold_sol: 85  # When it graduates to Raydium
+
+  # Event monitoring
+  events:
+    - create  # New token launches
+    - trade   # Buy/sell on bonding curve
+    - graduate  # Graduated to Raydium
+
+  # Filters
+  min_market_cap_usd: 1000  # Track tokens above $1k mcap
+  track_new_launches: true
+
+
+# ============================================================================
+# 3. JUPITER - DEX Aggregator (Highest volume)
+# ============================================================================
+jupiter:
+  enabled: true
+  version: "v6"
+
+  # Jupiter program IDs
+  program_id: "JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4"  # Jupiter v6
+
+  # Route types
+  routes:
+    - direct  # Direct swaps
+    - split   # Split routes for better prices
+
+  # Jupiter aggregates all DEXs, so we monitor Jupiter swaps
+  # which may route through Raydium, Orca, Meteora, etc.
+
+
+# ============================================================================
+# 4. ORCA - User-Friendly AMM (19% volume)
+# ============================================================================
+orca:
+  enabled: true
+  version: "whirlpools"
+
+  # Orca Whirlpool program
+  program_id: "whirLbMiicVdio4qvUfM5KAg6Ct8VwpYzGff3uctyCc"
+
+  # Concentrated liquidity pools (like Uniswap V3)
+  whirlpools:
+    # Popular SOL pairs
+    SOL-USDC:
+      address: "HJPjoWUrhoZzkNfRpHuieeFk9WcZWjwy6PBjZ81ngndJ"
+
+
+# ============================================================================
+# 5. METEORA - Dynamic Liquidity (22% volume)
+# ============================================================================
+meteora:
+  enabled: true
+
+  # Meteora DLMM (Dynamic Liquidity Market Maker)
+  program_id: "LBUZKhRxPF3XUpBCjp4YzTKgLccjZhTSDM9YuVaPwxo"
+
+  # Dynamic pools with better capital efficiency
+  pools:
+    # Dynamically populated based on volume
+
+
+# ============================================================================
+# Common Solana Token Addresses
+# ============================================================================
+tokens:
+  SOL: "So11111111111111111111111111111111111111112"  # Native SOL (wrapped)
+  USDC: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+  USDT: "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+  RAY: "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R"  # Raydium token
+  JUP: "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"   # Jupiter token
+  ORCA: "orcaEKTdK7LKz57vaAYr9QeNsVEPfiu6QeMU1kektZE"  # Orca token
+
+
+# ============================================================================
+# Monitoring Configuration
+# ============================================================================
+monitoring:
+  # Track meme coin metrics
+  track_metrics:
+    - volume_24h
+    - price_change_24h
+    - liquidity_usd
+    - holder_count
+    - rugpull_risk_score
+
+  # Alert thresholds for meme coins
+  alerts:
+    high_volume_spike: 500  # Alert if volume spikes >500% in 1 hour
+    rapid_price_increase: 100  # Alert if price increases >100% in 15 min
+    liquidity_removal: 50  # Alert if >50% liquidity removed
+
+  # Popular meme coin tracking
+  track_trending: true
+  trending_update_interval: 300  # Update every 5 minutes
+
+
+# ============================================================================
+# API Configuration
+# ============================================================================
+apis:
+  # Price feeds
+  birdeye:
+    enabled: true
+    endpoint: "https://public-api.birdeye.so"
+    # Get trending tokens, price data
+
+  # Transaction parsing
+  helius:
+    enabled: false  # Requires API key
+    endpoint: "https://api.helius.xyz/v0"
+    # Enhanced transaction parsing

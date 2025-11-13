@@ -9,7 +9,10 @@ import logging
 from typing import Optional, List, Dict, Callable
 from decimal import Decimal
 
-from .dex import UniswapV3Stream, CurveStream, SushiSwapStream, BalancerStream
+from .dex import (
+    UniswapV3Stream, CurveStream, SushiSwapStream, BalancerStream,
+    PumpFunStream, RaydiumStream
+)
 from .cex import BinanceStream
 
 logger = logging.getLogger(__name__)
@@ -41,7 +44,7 @@ class MarketDataManager:
 
     def __init__(
         self,
-        # DEX (Decentralized Exchanges)
+        # Ethereum DEX (Decentralized Exchanges)
         enable_uniswap_v3: bool = True,
         enable_curve: bool = False,
         enable_sushiswap: bool = False,
@@ -50,6 +53,11 @@ class MarketDataManager:
         curve_pools: Optional[List[str]] = None,
         sushiswap_pairs: Optional[List[str]] = None,
         balancer_pools: Optional[List[str]] = None,
+        # Solana DEX
+        enable_pump_fun: bool = False,
+        enable_raydium: bool = False,
+        pump_fun_min_mcap: float = 1000,
+        raydium_pools: Optional[List[str]] = None,
         # CEX (Centralized Exchanges)
         enable_binance: bool = True,
         binance_symbols: Optional[List[str]] = None,
@@ -60,7 +68,7 @@ class MarketDataManager:
         Initialize MarketDataManager.
 
         Args:
-            # DEX (Decentralized Exchanges)
+            # Ethereum DEX (Decentralized Exchanges)
             enable_uniswap_v3: Enable Uniswap V3 stream
             enable_curve: Enable Curve Finance stream
             enable_sushiswap: Enable SushiSwap stream
@@ -69,28 +77,41 @@ class MarketDataManager:
             curve_pools: List of Curve pools to monitor
             sushiswap_pairs: List of SushiSwap pairs to monitor
             balancer_pools: List of Balancer pools to monitor
+            # Solana DEX
+            enable_pump_fun: Enable Pump.fun stream (meme coin launchpad)
+            enable_raydium: Enable Raydium stream (#1 Solana DEX)
+            pump_fun_min_mcap: Minimum market cap for Pump.fun tokens (USD)
+            raydium_pools: List of Raydium pools to monitor
             # CEX (Centralized Exchanges)
             enable_binance: Enable Binance stream
             binance_symbols: List of Binance symbols to monitor
             # Settings
             arbitrage_threshold_pct: Minimum price difference % for arbitrage alert
         """
-        # DEX flags
+        # Ethereum DEX flags
         self.enable_uniswap_v3 = enable_uniswap_v3
         self.enable_curve = enable_curve
         self.enable_sushiswap = enable_sushiswap
         self.enable_balancer = enable_balancer
+
+        # Solana DEX flags
+        self.enable_pump_fun = enable_pump_fun
+        self.enable_raydium = enable_raydium
 
         # CEX flags
         self.enable_binance = enable_binance
 
         self.arbitrage_threshold = Decimal(str(arbitrage_threshold_pct / 100))
 
-        # Initialize DEX streams
+        # Initialize Ethereum DEX streams
         self.uniswap_stream = UniswapV3Stream(pools=uniswap_pools) if enable_uniswap_v3 else None
         self.curve_stream = CurveStream(pools=curve_pools) if enable_curve else None
         self.sushiswap_stream = SushiSwapStream(pairs=sushiswap_pairs) if enable_sushiswap else None
         self.balancer_stream = BalancerStream(pools=balancer_pools) if enable_balancer else None
+
+        # Initialize Solana DEX streams
+        self.pump_fun_stream = PumpFunStream(min_market_cap_usd=pump_fun_min_mcap) if enable_pump_fun else None
+        self.raydium_stream = RaydiumStream(pools=raydium_pools) if enable_raydium else None
 
         # Initialize CEX streams
         self.binance_stream = BinanceStream(symbols=binance_symbols) if enable_binance else None
@@ -157,6 +178,52 @@ class MarketDataManager:
 
         except Exception as e:
             logger.error(f"Error handling CEX trade: {e}")
+
+    async def _handle_pump_fun_launch(self, launch_data: Dict):
+        """Handle Pump.fun token launch event."""
+        try:
+            # Just log for now - no arbitrage check for new launches
+            logger.info(
+                f"🚀 New Pump.fun launch: {launch_data['token_address'][:12]}... | "
+                f"Mcap: ${launch_data['initial_market_cap_usd']:,.0f}"
+            )
+        except Exception as e:
+            logger.error(f"Error handling Pump.fun launch: {e}")
+
+    async def _handle_pump_fun_trade(self, trade_data: Dict):
+        """Handle Pump.fun bonding curve trade."""
+        try:
+            # Track bonding curve price
+            token = trade_data['token_address']
+            price = trade_data['price']
+            self.dex_prices[f"PUMP_FUN:{token}"] = Decimal(str(price))
+        except Exception as e:
+            logger.error(f"Error handling Pump.fun trade: {e}")
+
+    async def _handle_pump_fun_graduate(self, grad_data: Dict):
+        """Handle Pump.fun graduation to Raydium."""
+        try:
+            logger.warning(
+                f"🎓 Pump.fun graduation: {grad_data['token_address'][:12]}... | "
+                f"Mcap: ${grad_data['final_market_cap_usd']:,.0f}"
+            )
+        except Exception as e:
+            logger.error(f"Error handling Pump.fun graduation: {e}")
+
+    async def _handle_raydium_swap(self, swap_data: Dict):
+        """Handle Raydium swap event."""
+        try:
+            pool = swap_data['pool']
+            price = swap_data.get('price')
+
+            if price:
+                self.dex_prices[f"RAYDIUM:{pool}"] = Decimal(str(price))
+
+                # Future: Check for cross-chain arbitrage (Solana vs Ethereum)
+                # For now, just track Solana prices
+
+        except Exception as e:
+            logger.error(f"Error handling Raydium swap: {e}")
 
     async def _check_arbitrage(
         self,
@@ -311,6 +378,20 @@ class MarketDataManager:
             tasks.append(self.balancer_stream.start())
             logger.info("✓ Balancer V2 stream enabled")
 
+        # Start Pump.fun stream
+        if self.enable_pump_fun and self.pump_fun_stream:
+            self.pump_fun_stream.on_launch(self._handle_pump_fun_launch)
+            self.pump_fun_stream.on_trade(self._handle_pump_fun_trade)
+            self.pump_fun_stream.on_graduate(self._handle_pump_fun_graduate)
+            tasks.append(self.pump_fun_stream.start())
+            logger.info("✓ Pump.fun stream enabled (Solana meme coin launchpad)")
+
+        # Start Raydium stream
+        if self.enable_raydium and self.raydium_stream:
+            self.raydium_stream.on_swap(self._handle_raydium_swap)
+            tasks.append(self.raydium_stream.start())
+            logger.info("✓ Raydium stream enabled (Solana #1 DEX)")
+
         # Start Binance stream
         if self.enable_binance and self.binance_stream:
             self.binance_stream.on_trade(self._handle_cex_trade)
@@ -336,7 +417,7 @@ class MarketDataManager:
         """Stop all streams."""
         self._running = False
 
-        # Stop DEX streams
+        # Stop Ethereum DEX streams
         if self.uniswap_stream:
             await self.uniswap_stream.stop()
 
@@ -348,6 +429,13 @@ class MarketDataManager:
 
         if self.balancer_stream:
             await self.balancer_stream.stop()
+
+        # Stop Solana DEX streams
+        if self.pump_fun_stream:
+            await self.pump_fun_stream.stop()
+
+        if self.raydium_stream:
+            await self.raydium_stream.stop()
 
         # Stop CEX streams
         if self.binance_stream:

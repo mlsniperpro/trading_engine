@@ -178,7 +178,7 @@ async def startup_event():
         # Initialize market data manager
         logger.info("Initializing market data manager...")
         market_manager = MarketDataManager(
-            # DEX streams - All enabled!
+            # Ethereum DEX streams - All enabled!
             enable_uniswap_v3=True,
             enable_curve=True,
             enable_sushiswap=True,
@@ -192,6 +192,11 @@ async def startup_event():
             curve_pools=["stETH", "frxETH"],
             sushiswap_pairs=["ETH-USDC", "ETH-USDT"],
             balancer_pools=["BAL-WETH"],
+            # Solana DEX streams - Meme coin tracking!
+            enable_pump_fun=True,
+            enable_raydium=True,
+            pump_fun_min_mcap=1000,  # Track tokens above $1k mcap
+            raydium_pools=["SOL-USDC"],
             # CEX streams
             enable_binance=True,
             binance_symbols=["ETH-USDT"],
@@ -253,7 +258,8 @@ def main():
     print("=" * 70)
     print("\nComponents:")
     print("  • FastAPI server on http://0.0.0.0:8000")
-    print("  • DEX streams: Uniswap V3, Curve, SushiSwap, Balancer")
+    print("  • Ethereum DEX: Uniswap V3, Curve, SushiSwap, Balancer")
+    print("  • Solana DEX: Pump.fun (meme launchpad), Raydium")
     print("  • CEX stream: Binance")
     print("  • Cross-DEX arbitrage detection")
     print("\nEndpoints:")
