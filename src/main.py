@@ -195,8 +195,13 @@ async def startup_event():
             # Solana DEX streams - Meme coin tracking!
             enable_pump_fun=True,
             enable_raydium=True,
+            enable_jupiter=True,
+            enable_orca=True,
+            enable_meteora=True,
             pump_fun_min_mcap=1000,  # Track tokens above $1k mcap
             raydium_pools=["SOL-USDC"],
+            orca_pools=["SOL-USDC"],
+            meteora_pools=["SOL-USDC"],
             # CEX streams
             enable_binance=True,
             binance_symbols=["ETH-USDT"],
@@ -259,9 +264,10 @@ def main():
     print("\nComponents:")
     print("  • FastAPI server on http://0.0.0.0:8000")
     print("  • Ethereum DEX: Uniswap V3, Curve, SushiSwap, Balancer")
-    print("  • Solana DEX: Pump.fun (meme launchpad), Raydium")
+    print("  • Solana DEX: Pump.fun, Raydium, Jupiter, Orca, Meteora")
     print("  • CEX stream: Binance")
     print("  • Cross-DEX arbitrage detection")
+    print("  • Meme coin launch tracking (Pump.fun)")
     print("\nEndpoints:")
     print("  • GET /          - System status")
     print("  • GET /health    - Health check")

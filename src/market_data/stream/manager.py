@@ -11,7 +11,7 @@ from decimal import Decimal
 
 from .dex import (
     UniswapV3Stream, CurveStream, SushiSwapStream, BalancerStream,
-    PumpFunStream, RaydiumStream
+    PumpFunStream, RaydiumStream, JupiterStream, OrcaStream, MeteoraStream
 )
 from .cex import BinanceStream
 
@@ -56,8 +56,13 @@ class MarketDataManager:
         # Solana DEX
         enable_pump_fun: bool = False,
         enable_raydium: bool = False,
+        enable_jupiter: bool = False,
+        enable_orca: bool = False,
+        enable_meteora: bool = False,
         pump_fun_min_mcap: float = 1000,
         raydium_pools: Optional[List[str]] = None,
+        orca_pools: Optional[List[str]] = None,
+        meteora_pools: Optional[List[str]] = None,
         # CEX (Centralized Exchanges)
         enable_binance: bool = True,
         binance_symbols: Optional[List[str]] = None,
@@ -79,9 +84,14 @@ class MarketDataManager:
             balancer_pools: List of Balancer pools to monitor
             # Solana DEX
             enable_pump_fun: Enable Pump.fun stream (meme coin launchpad)
-            enable_raydium: Enable Raydium stream (#1 Solana DEX)
+            enable_raydium: Enable Raydium stream (#1 Solana DEX, 34% volume)
+            enable_jupiter: Enable Jupiter stream (DEX aggregator)
+            enable_orca: Enable Orca stream (Whirlpools, 19% volume)
+            enable_meteora: Enable Meteora stream (DLMM, 22% volume)
             pump_fun_min_mcap: Minimum market cap for Pump.fun tokens (USD)
             raydium_pools: List of Raydium pools to monitor
+            orca_pools: List of Orca Whirlpools to monitor
+            meteora_pools: List of Meteora DLMM pools to monitor
             # CEX (Centralized Exchanges)
             enable_binance: Enable Binance stream
             binance_symbols: List of Binance symbols to monitor
@@ -97,6 +107,9 @@ class MarketDataManager:
         # Solana DEX flags
         self.enable_pump_fun = enable_pump_fun
         self.enable_raydium = enable_raydium
+        self.enable_jupiter = enable_jupiter
+        self.enable_orca = enable_orca
+        self.enable_meteora = enable_meteora
 
         # CEX flags
         self.enable_binance = enable_binance
@@ -112,6 +125,9 @@ class MarketDataManager:
         # Initialize Solana DEX streams
         self.pump_fun_stream = PumpFunStream(min_market_cap_usd=pump_fun_min_mcap) if enable_pump_fun else None
         self.raydium_stream = RaydiumStream(pools=raydium_pools) if enable_raydium else None
+        self.jupiter_stream = JupiterStream() if enable_jupiter else None
+        self.orca_stream = OrcaStream(pools=orca_pools) if enable_orca else None
+        self.meteora_stream = MeteoraStream(pools=meteora_pools) if enable_meteora else None
 
         # Initialize CEX streams
         self.binance_stream = BinanceStream(symbols=binance_symbols) if enable_binance else None
@@ -224,6 +240,42 @@ class MarketDataManager:
 
         except Exception as e:
             logger.error(f"Error handling Raydium swap: {e}")
+
+    async def _handle_jupiter_swap(self, swap_data: Dict):
+        """Handle Jupiter aggregator swap event."""
+        try:
+            pair = f"{swap_data['input_mint']}-{swap_data['output_mint']}"
+            price = swap_data.get('price')
+
+            if price:
+                self.dex_prices[f"JUPITER:{pair}"] = Decimal(str(price))
+
+        except Exception as e:
+            logger.error(f"Error handling Jupiter swap: {e}")
+
+    async def _handle_orca_swap(self, swap_data: Dict):
+        """Handle Orca Whirlpool swap event."""
+        try:
+            pool = swap_data['whirlpool']
+            price = swap_data.get('price')
+
+            if price:
+                self.dex_prices[f"ORCA:{pool}"] = Decimal(str(price))
+
+        except Exception as e:
+            logger.error(f"Error handling Orca swap: {e}")
+
+    async def _handle_meteora_swap(self, swap_data: Dict):
+        """Handle Meteora DLMM swap event."""
+        try:
+            pool = swap_data['pool']
+            price = swap_data.get('price')
+
+            if price:
+                self.dex_prices[f"METEORA:{pool}"] = Decimal(str(price))
+
+        except Exception as e:
+            logger.error(f"Error handling Meteora swap: {e}")
 
     async def _check_arbitrage(
         self,
@@ -390,7 +442,25 @@ class MarketDataManager:
         if self.enable_raydium and self.raydium_stream:
             self.raydium_stream.on_swap(self._handle_raydium_swap)
             tasks.append(self.raydium_stream.start())
-            logger.info("✓ Raydium stream enabled (Solana #1 DEX)")
+            logger.info("✓ Raydium stream enabled (Solana #1 DEX, 34% volume)")
+
+        # Start Jupiter stream
+        if self.enable_jupiter and self.jupiter_stream:
+            self.jupiter_stream.on_swap(self._handle_jupiter_swap)
+            tasks.append(self.jupiter_stream.start())
+            logger.info("✓ Jupiter stream enabled (Solana DEX aggregator)")
+
+        # Start Orca stream
+        if self.enable_orca and self.orca_stream:
+            self.orca_stream.on_swap(self._handle_orca_swap)
+            tasks.append(self.orca_stream.start())
+            logger.info("✓ Orca stream enabled (Whirlpools, 19% volume)")
+
+        # Start Meteora stream
+        if self.enable_meteora and self.meteora_stream:
+            self.meteora_stream.on_swap(self._handle_meteora_swap)
+            tasks.append(self.meteora_stream.start())
+            logger.info("✓ Meteora stream enabled (DLMM, 22% volume)")
 
         # Start Binance stream
         if self.enable_binance and self.binance_stream:
@@ -436,6 +506,15 @@ class MarketDataManager:
 
         if self.raydium_stream:
             await self.raydium_stream.stop()
+
+        if self.jupiter_stream:
+            await self.jupiter_stream.stop()
+
+        if self.orca_stream:
+            await self.orca_stream.stop()
+
+        if self.meteora_stream:
+            await self.meteora_stream.stop()
 
         # Stop CEX streams
         if self.binance_stream:

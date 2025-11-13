@@ -24,7 +24,10 @@ from .sushiswap import SushiSwapStream
 from .balancer import BalancerStream
 
 # Solana DEXs
-from .solana import PumpFunStream, RaydiumStream
+from .solana import (
+    PumpFunStream, RaydiumStream, JupiterStream,
+    OrcaStream, MeteoraStream
+)
 
 __all__ = [
     # Ethereum
@@ -35,4 +38,7 @@ __all__ = [
     # Solana
     "PumpFunStream",
     "RaydiumStream",
+    "JupiterStream",
+    "OrcaStream",
+    "MeteoraStream",
 ]
