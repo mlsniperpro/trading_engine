@@ -5,12 +5,24 @@ chain: solana
 network: mainnet-beta
 
 # RPC Endpoints
+# NOTE: All Solana DEX streams now use Alchemy for reliability
+# The free public Solana RPC (api.mainnet-beta.solana.com) is unreliable
+# and frequently fails to stream events properly.
+#
+# Alchemy provides stable, high-performance Solana RPC and WebSocket
+# endpoints using the ALCHEMY_API_KEY from your .env file.
 rpc:
-  mainnet: "https://api.mainnet-beta.solana.com"
-  # Alternative high-performance RPCs (require API keys):
+  # Alchemy endpoints (RECOMMENDED - used by default in all DEX streams)
+  alchemy_https: "https://solana-mainnet.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
+  alchemy_wss: "wss://solana-mainnet.g.alchemy.com/v2/{ALCHEMY_API_KEY}"
+
+  # Legacy free public RPC (DEPRECATED - unreliable, not recommended)
+  public_mainnet: "https://api.mainnet-beta.solana.com"
+  public_websocket: "wss://api.mainnet-beta.solana.com"
+
+  # Alternative high-performance RPCs (require separate API keys):
   # helius: "https://mainnet.helius-rpc.com/?api-key=YOUR_KEY"
   # quicknode: "https://YOUR_ENDPOINT.solana-mainnet.quiknode.pro/YOUR_KEY/"
-  websocket: "wss://api.mainnet-beta.solana.com"
 
 # ============================================================================
 # 1. RAYDIUM - Market Leader (34% volume, $5.31B daily peak)

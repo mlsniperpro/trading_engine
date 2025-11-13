@@ -128,7 +128,7 @@ class SushiSwapStream:
             amount1Out: Amount of token1 swapped out
 
         Returns:
-            ETH price in USD
+            ETH price in USD, or None if swap doesn't involve meaningful ETH amounts
         """
         token0 = pair_config['token0']
         token1 = pair_config['token1']
@@ -155,12 +155,16 @@ class SushiSwapStream:
             eth_amount = abs(net_amount1)
             stablecoin_amount = abs(net_amount0)
 
+        # Minimum ETH threshold: 0.0001 ETH (~$0.30 at current prices)
+        # This filters out dust/rounding errors that produce invalid prices
+        MIN_ETH_THRESHOLD = Decimal('0.0001')
+
         # Calculate price (USD per ETH)
-        if eth_amount > 0:
+        if eth_amount >= MIN_ETH_THRESHOLD:
             price = stablecoin_amount / eth_amount
         else:
-            # Fallback: use reserve-based pricing
-            price = Decimal(0)
+            # Skip swaps with negligible ETH amounts - they produce invalid prices
+            price = None
 
         return price
 
@@ -253,6 +257,14 @@ class SushiSwapStream:
             price = self._calculate_price(
                 pair_config, amount0In, amount1In, amount0Out, amount1Out
             )
+
+            # Skip swaps with invalid/negligible ETH amounts
+            if price is None:
+                logger.debug(
+                    f"Skipping SushiSwap swap with negligible ETH amount "
+                    f"(would produce invalid price) - Pair: {pair_name}"
+                )
+                return
 
             if price > 0:
                 self.current_prices[pair_name] = price

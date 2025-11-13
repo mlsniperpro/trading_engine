@@ -77,13 +77,19 @@ class MeteoraStream:
             solana_ws_url: Solana WebSocket endpoint
             pools: List of DLMM pool names to monitor
         """
+        # Get Alchemy API key for reliable Solana RPC
+        alchemy_api_key = os.getenv("ALCHEMY_API_KEY")
+        if not alchemy_api_key:
+            raise ValueError("ALCHEMY_API_KEY required in .env for Solana streams")
+
+        # Use Alchemy's Solana endpoints (much more reliable than public RPC)
         self.rpc_url = solana_rpc_url or os.getenv(
             "SOLANA_RPC_URL",
-            "https://api.mainnet-beta.solana.com"
+            f"https://solana-mainnet.g.alchemy.com/v2/{alchemy_api_key}"
         )
         self.ws_url = solana_ws_url or os.getenv(
             "SOLANA_WS_URL",
-            "wss://api.mainnet-beta.solana.com"
+            f"wss://solana-mainnet.g.alchemy.com/v2/{alchemy_api_key}"
         )
         self.pools_to_monitor = pools or []
 
