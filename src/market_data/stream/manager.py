@@ -9,11 +9,8 @@ import logging
 from typing import Optional, List, Dict, Callable
 from decimal import Decimal
 
-from .dex_stream import DEXStream
-from .cex_stream import CEXStream
-from .curve_stream import CurveStream
-from .sushiswap_stream import SushiSwapStream
-from .balancer_stream import BalancerStream
+from .dex import UniswapV3Stream, CurveStream, SushiSwapStream, BalancerStream
+from .cex import BinanceStream
 
 logger = logging.getLogger(__name__)
 
@@ -44,47 +41,59 @@ class MarketDataManager:
 
     def __init__(
         self,
-        enable_dex: bool = True,
-        enable_cex: bool = True,
+        # DEX (Decentralized Exchanges)
+        enable_uniswap_v3: bool = True,
         enable_curve: bool = False,
         enable_sushiswap: bool = False,
         enable_balancer: bool = False,
-        dex_pools: Optional[List[str]] = None,
+        uniswap_pools: Optional[List[str]] = None,
         curve_pools: Optional[List[str]] = None,
         sushiswap_pairs: Optional[List[str]] = None,
         balancer_pools: Optional[List[str]] = None,
-        cex_symbols: Optional[List[str]] = None,
+        # CEX (Centralized Exchanges)
+        enable_binance: bool = True,
+        binance_symbols: Optional[List[str]] = None,
+        # Settings
         arbitrage_threshold_pct: float = 0.5,  # 0.5% price difference
     ):
         """
         Initialize MarketDataManager.
 
         Args:
-            enable_dex: Enable DEX stream (Uniswap V3)
-            enable_cex: Enable CEX stream (Binance)
+            # DEX (Decentralized Exchanges)
+            enable_uniswap_v3: Enable Uniswap V3 stream
             enable_curve: Enable Curve Finance stream
             enable_sushiswap: Enable SushiSwap stream
             enable_balancer: Enable Balancer V2 stream
-            dex_pools: List of Uniswap V3 pools to monitor
+            uniswap_pools: List of Uniswap V3 pools to monitor
             curve_pools: List of Curve pools to monitor
             sushiswap_pairs: List of SushiSwap pairs to monitor
             balancer_pools: List of Balancer pools to monitor
-            cex_symbols: List of CEX symbols to monitor
+            # CEX (Centralized Exchanges)
+            enable_binance: Enable Binance stream
+            binance_symbols: List of Binance symbols to monitor
+            # Settings
             arbitrage_threshold_pct: Minimum price difference % for arbitrage alert
         """
-        self.enable_dex = enable_dex
-        self.enable_cex = enable_cex
+        # DEX flags
+        self.enable_uniswap_v3 = enable_uniswap_v3
         self.enable_curve = enable_curve
         self.enable_sushiswap = enable_sushiswap
         self.enable_balancer = enable_balancer
+
+        # CEX flags
+        self.enable_binance = enable_binance
+
         self.arbitrage_threshold = Decimal(str(arbitrage_threshold_pct / 100))
 
-        # Initialize streams
-        self.dex_stream = DEXStream(pools=dex_pools) if enable_dex else None
+        # Initialize DEX streams
+        self.uniswap_stream = UniswapV3Stream(pools=uniswap_pools) if enable_uniswap_v3 else None
         self.curve_stream = CurveStream(pools=curve_pools) if enable_curve else None
         self.sushiswap_stream = SushiSwapStream(pairs=sushiswap_pairs) if enable_sushiswap else None
         self.balancer_stream = BalancerStream(pools=balancer_pools) if enable_balancer else None
-        self.cex_stream = CEXStream(symbols=cex_symbols) if enable_cex else None
+
+        # Initialize CEX streams
+        self.binance_stream = BinanceStream(symbols=binance_symbols) if enable_binance else None
 
         # Price tracking
         self.dex_prices: Dict[str, Decimal] = {}  # pool_name -> price
@@ -279,9 +288,9 @@ class MarketDataManager:
         tasks = []
 
         # Start Uniswap V3 stream
-        if self.enable_dex and self.dex_stream:
-            self.dex_stream.on_swap(self._handle_dex_swap)
-            tasks.append(self.dex_stream.start())
+        if self.enable_uniswap_v3 and self.uniswap_stream:
+            self.uniswap_stream.on_swap(self._handle_dex_swap)
+            tasks.append(self.uniswap_stream.start())
             logger.info("✓ Uniswap V3 stream enabled")
 
         # Start Curve stream
@@ -302,11 +311,11 @@ class MarketDataManager:
             tasks.append(self.balancer_stream.start())
             logger.info("✓ Balancer V2 stream enabled")
 
-        # Start CEX stream
-        if self.enable_cex and self.cex_stream:
-            self.cex_stream.on_trade(self._handle_cex_trade)
-            tasks.append(self.cex_stream.start())
-            logger.info("✓ CEX stream enabled")
+        # Start Binance stream
+        if self.enable_binance and self.binance_stream:
+            self.binance_stream.on_trade(self._handle_cex_trade)
+            tasks.append(self.binance_stream.start())
+            logger.info("✓ Binance stream enabled")
 
         if not tasks:
             logger.error("No streams enabled!")
@@ -327,8 +336,9 @@ class MarketDataManager:
         """Stop all streams."""
         self._running = False
 
-        if self.dex_stream:
-            await self.dex_stream.stop()
+        # Stop DEX streams
+        if self.uniswap_stream:
+            await self.uniswap_stream.stop()
 
         if self.curve_stream:
             await self.curve_stream.stop()
@@ -339,8 +349,9 @@ class MarketDataManager:
         if self.balancer_stream:
             await self.balancer_stream.stop()
 
-        if self.cex_stream:
-            await self.cex_stream.stop()
+        # Stop CEX streams
+        if self.binance_stream:
+            await self.binance_stream.stop()
 
         logger.info("Market Data Manager stopped")
 
@@ -367,10 +378,10 @@ async def main():
 
     # Create manager
     manager = MarketDataManager(
-        enable_dex=True,
-        enable_cex=True,
-        dex_pools=["ETH-USDC-0.3%", "ETH-USDT-0.3%"],
-        cex_symbols=["ETH-USDT"],
+        enable_uniswap_v3=True,
+        enable_binance=True,
+        uniswap_pools=["ETH-USDC-0.3%", "ETH-USDT-0.3%"],
+        binance_symbols=["ETH-USDT"],
         arbitrage_threshold_pct=0.3,  # Alert on 0.3%+ difference
     )
 

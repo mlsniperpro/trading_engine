@@ -42,10 +42,10 @@ async def main():
 
     # Create manager
     manager = MarketDataManager(
-        enable_dex=True,
-        enable_cex=True,
-        dex_pools=["ETH-USDC-0.3%", "ETH-USDT-0.3%"],
-        cex_symbols=["ETH-USDT"],
+        enable_uniswap_v3=True,
+        enable_binance=True,
+        uniswap_pools=["ETH-USDC-0.3%", "ETH-USDT-0.3%"],
+        binance_symbols=["ETH-USDT"],
         arbitrage_threshold_pct=0.3,  # Alert on 0.3%+ difference
     )
 

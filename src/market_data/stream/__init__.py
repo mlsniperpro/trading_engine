@@ -1,23 +1,30 @@
 """
 Market data streaming layer.
 
-This module provides real-time market data from various sources:
-- DEX: Decentralized exchanges (Uniswap V3, Curve, SushiSwap, Balancer) via blockchain WebSocket
-- CEX: Centralized exchanges (Binance, Bybit) via exchange WebSocket APIs
+This module provides real-time market data from various sources organized by platform type:
+
+- dex/: Decentralized exchanges (Uniswap V3, Curve, SushiSwap, Balancer)
+- cex/: Centralized exchanges (Binance)
+- forex/: Foreign exchange markets (coming soon)
 """
 
-from .dex_stream import DEXStream
-from .cex_stream import CEXStream
-from .curve_stream import CurveStream
-from .sushiswap_stream import SushiSwapStream
-from .balancer_stream import BalancerStream
+# Import all DEX streams
+from .dex import UniswapV3Stream, CurveStream, SushiSwapStream, BalancerStream
+
+# Import all CEX streams
+from .cex import BinanceStream
+
+# Import manager
 from .manager import MarketDataManager
 
 __all__ = [
-    "DEXStream",
-    "CEXStream",
+    # DEX streams
+    "UniswapV3Stream",
     "CurveStream",
     "SushiSwapStream",
     "BalancerStream",
+    # CEX streams
+    "BinanceStream",
+    # Manager
     "MarketDataManager",
 ]

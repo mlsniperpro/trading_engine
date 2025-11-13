@@ -43,8 +43,8 @@ async def main():
     # Create manager with ALL DEXs enabled
     manager = MarketDataManager(
         # Uniswap V3
-        enable_dex=True,
-        dex_pools=["ETH-USDC-0.3%", "ETH-USDT-0.3%"],
+        enable_uniswap_v3=True,
+        uniswap_pools=["ETH-USDC-0.3%", "ETH-USDT-0.3%"],
 
         # Curve Finance
         enable_curve=True,
@@ -59,8 +59,8 @@ async def main():
         balancer_pools=["BAL-WETH"],
 
         # Binance CEX
-        enable_cex=True,
-        cex_symbols=["ETH-USDT"],
+        enable_binance=True,
+        binance_symbols=["ETH-USDT"],
 
         # Arbitrage settings
         arbitrage_threshold_pct=0.3,  # Alert on 0.3%+ difference

@@ -178,10 +178,10 @@ async def startup_event():
         # Initialize market data manager
         logger.info("Initializing market data manager...")
         market_manager = MarketDataManager(
-            enable_dex=True,
-            enable_cex=True,
-            dex_pools=["ETH-USDC-0.3%", "ETH-USDT-0.3%"],
-            cex_symbols=["ETH-USDT"],
+            enable_uniswap_v3=True,
+            enable_binance=True,
+            uniswap_pools=["ETH-USDC-0.3%", "ETH-USDT-0.3%"],
+            binance_symbols=["ETH-USDT"],
             arbitrage_threshold_pct=0.3,
         )
 
