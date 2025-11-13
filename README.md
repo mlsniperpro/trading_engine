@@ -38,17 +38,17 @@ cp .env.example .env
 
 **Test CEX Feed (Binance, Coinbase, Kraken, Bybit):**
 ```bash
-uv run python -m trading_engine.price_feed
+uv run python -m src.market_data.cex_feed
 ```
 
 **Test DEX Feed (Uniswap V3 via Alchemy):**
 ```bash
-uv run python -m trading_engine.dex_feed
+uv run python -m src.market_data.dex_feed
 ```
 
 **Test Unified Feed (CEX + DEX with arbitrage detection):**
 ```bash
-uv run python -m trading_engine.unified_feed
+uv run python -m src.market_data.unified_feed
 ```
 
 ### Running the API
@@ -107,21 +107,23 @@ This will:
 
 ## Development
 
-The project uses a `src` layout:
+Project structure:
 
 ```
 trading_engine/
-├── src/trading_engine/
-│   ├── main.py              # FastAPI application
-│   ├── price_feed.py        # CEX price feed (4 exchanges)
-│   ├── dex_feed.py          # DEX price feed (Uniswap V3)
-│   ├── unified_feed.py      # Combined CEX + DEX
-│   ├── deploy_docker.py     # Docker deployment
-│   └── hetzner.py           # Hetzner Cloud automation
-├── Dockerfile               # Container definition
-├── docker-compose.yml       # Orchestration
-├── pyproject.toml          # Dependencies
-└── .env                    # Configuration
+├── src/
+│   ├── main.py                    # FastAPI application
+│   └── market_data/               # Market data ingestion
+│       ├── cex_feed.py            # CEX feeds (Binance, Coinbase, etc.)
+│       ├── dex_feed.py            # DEX feeds (Uniswap V3)
+│       └── unified_feed.py        # Combined CEX + DEX
+├── scripts/
+│   ├── deploy_docker.py           # Docker deployment
+│   └── hetzner.py                 # Hetzner Cloud automation
+├── Dockerfile                     # Container definition
+├── docker-compose.yml             # Orchestration
+├── pyproject.toml                # Dependencies
+└── .env                          # Configuration
 ```
 
 ### Available Commands

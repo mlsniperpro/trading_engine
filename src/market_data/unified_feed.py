@@ -17,8 +17,8 @@ from typing import Dict, Callable
 from datetime import datetime
 
 # Import our price feeds
-from trading_engine.price_feed import MultiExchangePriceFeed
-from trading_engine.dex_feed import DEXPriceFeed
+from .cex_feed import MultiExchangePriceFeed
+from .dex_feed import DEXPriceFeed
 
 logger = logging.getLogger(__name__)
 

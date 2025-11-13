@@ -18,11 +18,14 @@ dependencies = [
     "cryptofeed>=2.4.1",
 ]
 
+[tool.uv]
+package = false
+
 [project.scripts]
-start = "trading_engine:main"
-trading-engine = "trading_engine:main"
-deploy = "trading_engine.deploy_docker:main"
-hetzner-setup = "trading_engine.hetzner:main"
+start = "src.main:main"
+trading-engine = "src.main:main"
+deploy = "scripts.deploy_docker:main"
+hetzner-setup = "scripts.hetzner:main"
 
 [build-system]
 requires = ["uv_build>=0.9.9,<0.10.0"]
