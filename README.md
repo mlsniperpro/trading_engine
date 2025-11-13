@@ -251,9 +251,9 @@ make logs                           # View remote logs
 
 **✅ Working:**
 - FastAPI backend with real-time data
-- DEX stream (Uniswap V3 via Alchemy)
+- **All 4 DEX streams** (Uniswap V3, Curve, SushiSwap, Balancer via Alchemy)
 - CEX stream (Binance via CryptoFeed)
-- MarketDataManager with arbitrage detection
+- MarketDataManager with cross-DEX arbitrage detection
 - Docker deployment infrastructure
 - Hetzner Cloud integration
 - One-command startup (`uv run start`)

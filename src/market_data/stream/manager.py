@@ -11,6 +11,9 @@ from decimal import Decimal
 
 from .dex_stream import DEXStream
 from .cex_stream import CEXStream
+from .curve_stream import CurveStream
+from .sushiswap_stream import SushiSwapStream
+from .balancer_stream import BalancerStream
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +46,13 @@ class MarketDataManager:
         self,
         enable_dex: bool = True,
         enable_cex: bool = True,
+        enable_curve: bool = False,
+        enable_sushiswap: bool = False,
+        enable_balancer: bool = False,
         dex_pools: Optional[List[str]] = None,
+        curve_pools: Optional[List[str]] = None,
+        sushiswap_pairs: Optional[List[str]] = None,
+        balancer_pools: Optional[List[str]] = None,
         cex_symbols: Optional[List[str]] = None,
         arbitrage_threshold_pct: float = 0.5,  # 0.5% price difference
     ):
@@ -51,18 +60,30 @@ class MarketDataManager:
         Initialize MarketDataManager.
 
         Args:
-            enable_dex: Enable DEX stream (Uniswap)
+            enable_dex: Enable DEX stream (Uniswap V3)
             enable_cex: Enable CEX stream (Binance)
-            dex_pools: List of DEX pools to monitor
+            enable_curve: Enable Curve Finance stream
+            enable_sushiswap: Enable SushiSwap stream
+            enable_balancer: Enable Balancer V2 stream
+            dex_pools: List of Uniswap V3 pools to monitor
+            curve_pools: List of Curve pools to monitor
+            sushiswap_pairs: List of SushiSwap pairs to monitor
+            balancer_pools: List of Balancer pools to monitor
             cex_symbols: List of CEX symbols to monitor
             arbitrage_threshold_pct: Minimum price difference % for arbitrage alert
         """
         self.enable_dex = enable_dex
         self.enable_cex = enable_cex
+        self.enable_curve = enable_curve
+        self.enable_sushiswap = enable_sushiswap
+        self.enable_balancer = enable_balancer
         self.arbitrage_threshold = Decimal(str(arbitrage_threshold_pct / 100))
 
         # Initialize streams
         self.dex_stream = DEXStream(pools=dex_pools) if enable_dex else None
+        self.curve_stream = CurveStream(pools=curve_pools) if enable_curve else None
+        self.sushiswap_stream = SushiSwapStream(pairs=sushiswap_pairs) if enable_sushiswap else None
+        self.balancer_stream = BalancerStream(pools=balancer_pools) if enable_balancer else None
         self.cex_stream = CEXStream(symbols=cex_symbols) if enable_cex else None
 
         # Price tracking
@@ -76,25 +97,28 @@ class MarketDataManager:
         self._running = False
 
     async def _handle_dex_swap(self, swap_data: Dict):
-        """Handle DEX swap event."""
+        """Handle DEX swap event (Uniswap V3, Curve, SushiSwap, Balancer)."""
         try:
             pool = swap_data['pool']
-            price = swap_data['price']
+            price = swap_data.get('price')
+            exchange = swap_data.get('exchange', 'UNISWAP_V3')
 
-            # Update DEX price
-            self.dex_prices[pool] = price
+            # Update DEX price if available
+            if price:
+                self.dex_prices[f"{exchange}:{pool}"] = price
 
-            # Check for arbitrage opportunities
-            await self._check_arbitrage(source='DEX', pool=pool, price=price)
+                # Check for arbitrage opportunities
+                await self._check_arbitrage(source='DEX', pool=pool, price=price, exchange=exchange)
 
             # Emit unified price event
+            volume = swap_data.get('trade_value_usd', 0)
             await self._emit_unified_price({
                 'source': 'DEX',
-                'venue': 'UNISWAP_V3',
+                'venue': exchange,
                 'pair': pool,
                 'price': price,
-                'timestamp': swap_data['timestamp'],
-                'volume': swap_data['trade_value_usd'],
+                'timestamp': swap_data.get('timestamp'),
+                'volume': volume,
             })
 
         except Exception as e:
@@ -130,7 +154,8 @@ class MarketDataManager:
         source: str,
         price: Decimal,
         pool: Optional[str] = None,
-        symbol: Optional[str] = None
+        symbol: Optional[str] = None,
+        exchange: Optional[str] = None
     ):
         """
         Check for arbitrage opportunities between DEX and CEX.
@@ -253,11 +278,29 @@ class MarketDataManager:
 
         tasks = []
 
-        # Start DEX stream
+        # Start Uniswap V3 stream
         if self.enable_dex and self.dex_stream:
             self.dex_stream.on_swap(self._handle_dex_swap)
             tasks.append(self.dex_stream.start())
-            logger.info("✓ DEX stream enabled")
+            logger.info("✓ Uniswap V3 stream enabled")
+
+        # Start Curve stream
+        if self.enable_curve and self.curve_stream:
+            self.curve_stream.on_swap(self._handle_dex_swap)
+            tasks.append(self.curve_stream.start())
+            logger.info("✓ Curve Finance stream enabled")
+
+        # Start SushiSwap stream
+        if self.enable_sushiswap and self.sushiswap_stream:
+            self.sushiswap_stream.on_swap(self._handle_dex_swap)
+            tasks.append(self.sushiswap_stream.start())
+            logger.info("✓ SushiSwap stream enabled")
+
+        # Start Balancer stream
+        if self.enable_balancer and self.balancer_stream:
+            self.balancer_stream.on_swap(self._handle_dex_swap)
+            tasks.append(self.balancer_stream.start())
+            logger.info("✓ Balancer V2 stream enabled")
 
         # Start CEX stream
         if self.enable_cex and self.cex_stream:
@@ -286,6 +329,15 @@ class MarketDataManager:
 
         if self.dex_stream:
             await self.dex_stream.stop()
+
+        if self.curve_stream:
+            await self.curve_stream.stop()
+
+        if self.sushiswap_stream:
+            await self.sushiswap_stream.stop()
+
+        if self.balancer_stream:
+            await self.balancer_stream.stop()
 
         if self.cex_stream:
             await self.cex_stream.stop()
