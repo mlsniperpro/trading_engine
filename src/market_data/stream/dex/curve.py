@@ -328,6 +328,8 @@ class CurveStream:
             token_exchange_topic = self.w3.keccak(
                 text='TokenExchange(address,int128,uint256,int128,uint256)'
             ).hex()
+            if not token_exchange_topic.startswith('0x'):
+                token_exchange_topic = '0x' + token_exchange_topic
 
             # Create filter params for WebSocket subscription
             filter_params = {

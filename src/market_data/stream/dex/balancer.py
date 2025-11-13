@@ -308,6 +308,8 @@ class BalancerStream:
             swap_event_topic = self.w3.keccak(
                 text='Swap(bytes32,address,address,uint256,uint256)'
             ).hex()
+            if not swap_event_topic.startswith('0x'):
+                swap_event_topic = '0x' + swap_event_topic
 
             # Create filter params for WebSocket subscription
             # Note: We subscribe to all Vault swaps and filter by pool_id in code

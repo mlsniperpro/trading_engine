@@ -367,6 +367,8 @@ class SushiSwapStream:
             swap_event_topic = self.w3.keccak(
                 text='Swap(address,uint256,uint256,uint256,uint256,address)'
             ).hex()
+            if not swap_event_topic.startswith('0x'):
+                swap_event_topic = '0x' + swap_event_topic
 
             # Create filter params for WebSocket subscription
             filter_params = {
