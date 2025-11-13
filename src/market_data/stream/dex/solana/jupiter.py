@@ -74,12 +74,12 @@ class JupiterStream:
             solana_rpc_url: Solana RPC HTTP endpoint
             solana_ws_url: Solana WebSocket endpoint
         """
-        # Get Alchemy API key for reliable Solana RPC
+        # Get Alchemy API key for Solana RPC
         alchemy_api_key = os.getenv("ALCHEMY_API_KEY")
         if not alchemy_api_key:
             raise ValueError("ALCHEMY_API_KEY required in .env for Solana streams")
 
-        # Use Alchemy's Solana endpoints (much more reliable than public RPC)
+        # Use Alchemy's Solana endpoints
         self.rpc_url = solana_rpc_url or os.getenv(
             "SOLANA_RPC_URL",
             f"https://solana-mainnet.g.alchemy.com/v2/{alchemy_api_key}"
