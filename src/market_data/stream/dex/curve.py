@@ -324,29 +324,32 @@ class CurveStream:
 
         # Subscribe to TokenExchange events from all pools
         try:
-            event_filter = await self.w3.eth.filter({
+            # Get TokenExchange event topic
+            token_exchange_topic = self.w3.keccak(
+                text='TokenExchange(address,int128,uint256,int128,uint256)'
+            ).hex()
+
+            # Create filter params for WebSocket subscription
+            filter_params = {
                 'address': pool_addresses,
-                'topics': [
-                    # TokenExchange event signature
-                    self.w3.keccak(text='TokenExchange(address,int128,uint256,int128,uint256)').hex()
-                ]
-            })
+                'topics': [token_exchange_topic]
+            }
 
-            logger.info("✓ Subscribed to Curve TokenExchange events")
+            # Subscribe using WebSocket
+            subscription_id = await self.w3.eth.subscribe("logs", filter_params)
+            logger.info(f"✓ Subscribed to Curve TokenExchange events (ID: {subscription_id})")
+            logger.info(f"✓ Monitoring {len(pool_addresses)} Curve pools")
 
-            # Poll for new events
-            while self._running:
+            # Stream events in real-time
+            async for payload in self.w3.socket.process_subscriptions():
+                if not self._running:
+                    break
+
                 try:
-                    new_logs = await event_filter.get_new_entries()
-
-                    for log in new_logs:
-                        await self._handle_swap_log(log)
-
-                    await asyncio.sleep(1)  # Poll every second
-
+                    result = payload["result"]
+                    await self._handle_swap_log(result)
                 except Exception as e:
-                    logger.error(f"Error polling Curve events: {e}")
-                    await asyncio.sleep(5)
+                    logger.error(f"Error receiving Curve swap event: {e}")
 
         except Exception as e:
             logger.error(f"Failed to subscribe to Curve events: {e}")

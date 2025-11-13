@@ -363,29 +363,32 @@ class SushiSwapStream:
 
         # Subscribe to Swap events from all pairs
         try:
-            event_filter = await self.w3.eth.filter({
+            # Get Swap event topic (Uniswap V2 compatible)
+            swap_event_topic = self.w3.keccak(
+                text='Swap(address,uint256,uint256,uint256,uint256,address)'
+            ).hex()
+
+            # Create filter params for WebSocket subscription
+            filter_params = {
                 'address': pair_addresses,
-                'topics': [
-                    # Swap event signature (Uniswap V2 compatible)
-                    self.w3.keccak(text='Swap(address,uint256,uint256,uint256,uint256,address)').hex()
-                ]
-            })
+                'topics': [swap_event_topic]
+            }
 
-            logger.info("✓ Subscribed to SushiSwap Swap events")
+            # Subscribe using WebSocket
+            subscription_id = await self.w3.eth.subscribe("logs", filter_params)
+            logger.info(f"✓ Subscribed to SushiSwap Swap events (ID: {subscription_id})")
+            logger.info(f"✓ Monitoring {len(pair_addresses)} SushiSwap pairs")
 
-            # Poll for new events
-            while self._running:
+            # Stream events in real-time
+            async for payload in self.w3.socket.process_subscriptions():
+                if not self._running:
+                    break
+
                 try:
-                    new_logs = await event_filter.get_new_entries()
-
-                    for log in new_logs:
-                        await self._handle_swap_log(log)
-
-                    await asyncio.sleep(1)  # Poll every second
-
+                    result = payload["result"]
+                    await self._handle_swap_log(result)
                 except Exception as e:
-                    logger.error(f"Error polling SushiSwap events: {e}")
-                    await asyncio.sleep(5)
+                    logger.error(f"Error receiving SushiSwap swap event: {e}")
 
         except Exception as e:
             logger.error(f"Failed to subscribe to SushiSwap events: {e}")

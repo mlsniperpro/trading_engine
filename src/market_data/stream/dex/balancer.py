@@ -303,36 +303,34 @@ class BalancerStream:
         logger.info(f"Monitoring: {', '.join(self.pools_to_monitor)}")
 
         # Subscribe to Swap events from the Vault
-        # Filter by pool IDs (pool_id is indexed, so we can filter by it)
         try:
-            # Create filter for Swap events
-            # Note: Balancer's poolId is the first indexed parameter
-            event_filter = await self.w3.eth.filter({
+            # Get Swap event topic
+            swap_event_topic = self.w3.keccak(
+                text='Swap(bytes32,address,address,uint256,uint256)'
+            ).hex()
+
+            # Create filter params for WebSocket subscription
+            # Note: We subscribe to all Vault swaps and filter by pool_id in code
+            filter_params = {
                 'address': self.w3.to_checksum_address(BALANCER_VAULT),
-                'topics': [
-                    # Swap event signature
-                    self.w3.keccak(text='Swap(bytes32,address,address,uint256,uint256)').hex(),
-                    # Pool IDs (convert to 32-byte hex)
-                    # Note: We can only filter by one pool at a time in topics
-                    # So we'll subscribe to all swaps and filter in code
-                ]
-            })
+                'topics': [swap_event_topic]
+            }
 
-            logger.info("✓ Subscribed to Balancer Vault Swap events")
+            # Subscribe using WebSocket
+            subscription_id = await self.w3.eth.subscribe("logs", filter_params)
+            logger.info(f"✓ Subscribed to Balancer Vault Swap events (ID: {subscription_id})")
+            logger.info(f"✓ Monitoring {len(pool_ids)} Balancer pools")
 
-            # Poll for new events
-            while self._running:
+            # Stream events in real-time
+            async for payload in self.w3.socket.process_subscriptions():
+                if not self._running:
+                    break
+
                 try:
-                    new_logs = await event_filter.get_new_entries()
-
-                    for log in new_logs:
-                        await self._handle_swap_log(log)
-
-                    await asyncio.sleep(1)  # Poll every second
-
+                    result = payload["result"]
+                    await self._handle_swap_log(result)
                 except Exception as e:
-                    logger.error(f"Error polling Balancer events: {e}")
-                    await asyncio.sleep(5)
+                    logger.error(f"Error receiving Balancer swap event: {e}")
 
         except Exception as e:
             logger.error(f"Failed to subscribe to Balancer events: {e}")
