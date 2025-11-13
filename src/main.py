@@ -183,7 +183,12 @@ async def startup_event():
             enable_curve=True,
             enable_sushiswap=True,
             enable_balancer=True,
-            uniswap_pools=["ETH-USDC-0.3%", "ETH-USDT-0.3%"],
+            uniswap_pools=[
+                "ETH-USDC-0.3%",
+                "ETH-USDT-0.3%",
+                "ETH-USDC-0.05%",  # Add 0.05% tier for more activity
+                "ETH-USDT-0.05%",  # Add 0.05% tier for more activity
+            ],
             curve_pools=["stETH", "frxETH"],
             sushiswap_pairs=["ETH-USDC", "ETH-USDT"],
             balancer_pools=["BAL-WETH"],
