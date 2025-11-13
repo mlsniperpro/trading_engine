@@ -369,8 +369,7 @@ class PumpFunStream:
         try:
             # Subscribe to Pump.fun program account updates
             # This monitors all transactions involving the Pump.fun program
-            from solders.rpc.config import RpcTransactionLogsFilter
-            filter_mentions = RpcTransactionLogsFilter.mentions([self.program_id])
+            filter_mentions = RpcTransactionLogsFilterMentions(self.program_id)
             await self._ws.logs_subscribe(
                 filter_=filter_mentions,
                 commitment=Confirmed
