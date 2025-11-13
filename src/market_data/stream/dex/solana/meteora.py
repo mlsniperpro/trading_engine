@@ -234,7 +234,8 @@ class MeteoraStream:
 
         try:
             # Subscribe to Meteora DLMM program logs
-            filter_mentions = RpcTransactionLogsFilterMentions([self.program_id])
+            from solders.rpc.config import RpcTransactionLogsFilter
+            filter_mentions = RpcTransactionLogsFilter.mentions([self.program_id])
             await self._ws.logs_subscribe(
                 filter_=filter_mentions,
                 commitment=Confirmed
