@@ -170,21 +170,17 @@ class SushiSwapStream:
             logger.info("Connecting to Ethereum mainnet via Alchemy...")
             logger.info(f"Connecting to: {self.wss_url[:50]}...")
 
-            provider = WebSocketProvider(
-                self.wss_url,
-                websocket_timeout=60,
-                websocket_kwargs={'max_size': 2**25}
-            )
-
+            provider = WebSocketProvider(self.wss_url)
             self.w3 = AsyncWeb3(provider)
 
-            # Test connection with timeout
-            connected = await asyncio.wait_for(
-                self.w3.is_connected(),
+            # Add timeout to connection attempt
+            await asyncio.wait_for(
+                self.w3.provider.connect(),
                 timeout=10.0
             )
 
-            if not connected:
+            is_connected = await self.w3.is_connected()
+            if not is_connected:
                 raise ConnectionError("Failed to connect to Ethereum WebSocket")
 
             logger.info("✓ Connected to Ethereum mainnet (SushiSwap)")
