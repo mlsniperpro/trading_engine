@@ -18,10 +18,7 @@ Solana DEXs (via Solana RPC WebSocket):
 """
 
 # Ethereum DEXs
-from .uniswap_v3 import DEXStream as UniswapV3Stream
-from .curve import CurveStream
-from .sushiswap import SushiSwapStream
-from .balancer import BalancerStream
+from .ethereum import UniswapV3Stream, CurveStream, SushiSwapStream, BalancerStream
 
 # Solana DEXs
 from .solana import (
