@@ -197,12 +197,16 @@ class DEXStream:
         try:
             self.swap_count += 1
 
+            # Debug: print what we're actually getting
+            logger.debug(f"log_receipt type: {type(log_receipt)}, value: {log_receipt}")
+
+            # Access attributes directly (web3.py returns AttributeDict, not dict)
             # Identify which pool this swap is from
             raw_address = log_receipt['address']
             if isinstance(raw_address, bytes):
                 pool_address = '0x' + raw_address.hex().lower()
             else:
-                pool_address = raw_address.lower()
+                pool_address = str(raw_address).lower()
 
             # Ensure address has 0x prefix
             if not pool_address.startswith('0x'):
@@ -273,14 +277,18 @@ class DEXStream:
                 f"Price: ${new_price:,.2f}"
             )
 
-            # Handle transaction hash (can be bytes or string)
+            # Handle transaction hash (can be bytes, HexBytes, or string)
             tx_hash = log_receipt['transactionHash']
-            if isinstance(tx_hash, bytes):
+            if tx_hash is None:
+                tx_hash_hex = '0x0000000000000000000000000000000000000000000000000000000000000000'
+            elif isinstance(tx_hash, bytes):
                 tx_hash_hex = '0x' + tx_hash.hex()
+            elif hasattr(tx_hash, 'hex'):  # HexBytes object
+                tx_hash_hex = tx_hash.hex()
             elif isinstance(tx_hash, str):
                 tx_hash_hex = tx_hash if tx_hash.startswith('0x') else '0x' + tx_hash
             else:
-                tx_hash_hex = str(tx_hash)
+                tx_hash_hex = '0x' + str(tx_hash)
 
             # Prepare swap data
             swap_data = {
@@ -391,23 +399,11 @@ class DEXStream:
         logger.info("🔮 Subscribing to Ethereum mempool (pending transactions)...")
 
         try:
-            subscription_id = await self.w3.eth.subscribe("newPendingTransactions")
-            logger.info(f"✓ Subscribed to mempool (ID: {subscription_id})")
+            self.mempool_subscription_id = await self.w3.eth.subscribe("newPendingTransactions")
+            logger.info(f"✓ Subscribed to mempool (ID: {self.mempool_subscription_id})")
         except Exception as e:
             logger.error(f"Mempool subscription failed: {e}")
             raise
-
-        # Listen for pending transactions
-        async for payload in self.w3.socket.process_subscriptions():
-            if not self._running:
-                break
-
-            try:
-                tx_hash = payload["result"]
-                # Process pending transaction asynchronously (don't block stream)
-                asyncio.create_task(self._handle_pending_transaction(tx_hash))
-            except Exception as e:
-                logger.debug(f"Error receiving pending tx: {e}")
 
     async def subscribe_to_swaps(self):
         """Subscribe to Uniswap V3 swap events for all monitored pools."""
@@ -443,16 +439,7 @@ class DEXStream:
 
         logger.info(f"✓ Monitoring {len(pool_addresses)} Uniswap V3 pools")
 
-        # Listen for swap events
-        async for payload in self.w3.socket.process_subscriptions():
-            if not self._running:
-                break
-
-            try:
-                result = payload["result"]
-                await self._handle_swap_log(result)
-            except Exception as e:
-                logger.error(f"Error receiving swap event: {e}")
+        self.swap_subscription_id = subscription_id
 
     async def _notify_callbacks(self, swap_data: Dict):
         """Notify all registered callbacks of new swap."""
@@ -506,22 +493,47 @@ class DEXStream:
         """
         self.pending_tx_callbacks.append(callback)
 
+    async def _process_subscriptions(self):
+        """Process all subscription events from a single loop."""
+        async for payload in self.w3.socket.process_subscriptions():
+            if not self._running:
+                break
+
+            try:
+                subscription_id = payload.get("subscription")
+                result = payload["result"]
+
+                # Route to appropriate handler based on subscription ID
+                if hasattr(self, 'swap_subscription_id') and subscription_id == self.swap_subscription_id:
+                    # This is a swap event
+                    await self._handle_swap_log(result)
+                elif hasattr(self, 'mempool_subscription_id') and subscription_id == self.mempool_subscription_id:
+                    # This is a pending transaction
+                    tx_hash = result
+                    asyncio.create_task(self._handle_pending_transaction(tx_hash))
+                else:
+                    logger.debug(f"Unknown subscription: {subscription_id}")
+
+            except Exception as e:
+                logger.error(f"Error processing subscription event: {e}")
+
     async def start(self):
         """Start DEX stream."""
         self._running = True
         await self.connect()
 
-        # Start both subscriptions concurrently
-        tasks = [asyncio.create_task(self.subscribe_to_swaps())]
+        # Subscribe to swap events
+        await self.subscribe_to_swaps()
 
+        # Subscribe to mempool if enabled
         if self.enable_mempool:
-            tasks.append(asyncio.create_task(self.subscribe_to_mempool()))
+            await self.subscribe_to_mempool()
             logger.info("✓ Mempool monitoring enabled")
         else:
             logger.info("⚠️  Mempool monitoring disabled")
 
-        # Wait for both subscriptions to complete
-        await asyncio.gather(*tasks, return_exceptions=True)
+        # Process all subscriptions in a single loop
+        await self._process_subscriptions()
 
     async def stop(self):
         """Stop DEX stream."""
