@@ -13,13 +13,19 @@ dependencies = [
     "hcloud>=1.35.0",
     "python-dotenv>=1.2.1",
     "web3>=7.14.0",
-    "websockets==15.0",  # Pin to 15.0 for compatibility with solana
+    "websockets==15.0", # Pin to 15.0 for compatibility with solana
     "aiohttp>=3.13.2",
     "cryptofeed>=2.4.1",
     "pyyaml>=6.0.1",
-    "solana>=0.36.1,<0.36.7",  # Compatible with anchorpy 0.21.0 and websockets 15.0
+    "solana>=0.36.1,<0.36.7", # Compatible with anchorpy 0.21.0 and websockets 15.0
     "solders>=0.21.0",
-    "anchorpy>=0.21.0",  # Latest version
+    "anchorpy>=0.21.0", # Latest version
+    "python-socketio[client]>=5.14.3",
+    "tronpy>=0.6.1",
+    "grpcio>=1.63.0",
+    "grpcio-tools>=1.63.0",
+    "protobuf>=5.26.1",
+    "base58>=2.1.1",
 ]
 
 [project.scripts]

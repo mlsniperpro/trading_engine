@@ -11,8 +11,9 @@ from decimal import Decimal
 
 from .dex import (
     UniswapV3Stream, CurveStream, SushiSwapStream, BalancerStream,
-    PumpFunStream, RaydiumStream, JupiterStream, OrcaStream, MeteoraStream
+    PumpFunStream, RaydiumStream, RaydiumGeyserStream, JupiterStream, OrcaStream, MeteoraStream
 )
+from .dex.tron import SunSwapV1Stream, SunSwapV2Stream, SunSwapV3Stream
 from .cex import BinanceStream
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,13 @@ class MarketDataManager:
         raydium_pools: Optional[List[str]] = None,
         orca_pools: Optional[List[str]] = None,
         meteora_pools: Optional[List[str]] = None,
+        # Tron DEX
+        enable_sunswap_v3: bool = False,
+        enable_sunswap_v2: bool = False,
+        enable_sunswap_v1: bool = False,
+        sunswap_v3_pools: Optional[List[str]] = None,
+        sunswap_v2_pairs: Optional[List[str]] = None,
+        sunswap_v1_pairs: Optional[List[str]] = None,
         # CEX (Centralized Exchanges)
         enable_binance: bool = True,
         binance_symbols: Optional[List[str]] = None,
@@ -92,6 +100,13 @@ class MarketDataManager:
             raydium_pools: List of Raydium pools to monitor
             orca_pools: List of Orca Whirlpools to monitor
             meteora_pools: List of Meteora DLMM pools to monitor
+            # Tron DEX
+            enable_sunswap_v3: Enable SunSwap V3 stream (78-89% TRON DEX volume, $288M TVL)
+            enable_sunswap_v2: Enable SunSwap V2 stream (meme coin support, $431M TVL)
+            enable_sunswap_v1: Enable SunSwap V1 stream (original TRON DEX, $452M TVL)
+            sunswap_v3_pools: List of SunSwap V3 pools to monitor
+            sunswap_v2_pairs: List of SunSwap V2 pairs to monitor
+            sunswap_v1_pairs: List of SunSwap V1 pairs to monitor
             # CEX (Centralized Exchanges)
             enable_binance: Enable Binance stream
             binance_symbols: List of Binance symbols to monitor
@@ -111,6 +126,11 @@ class MarketDataManager:
         self.enable_orca = enable_orca
         self.enable_meteora = enable_meteora
 
+        # Tron DEX flags
+        self.enable_sunswap_v3 = enable_sunswap_v3
+        self.enable_sunswap_v2 = enable_sunswap_v2
+        self.enable_sunswap_v1 = enable_sunswap_v1
+
         # CEX flags
         self.enable_binance = enable_binance
 
@@ -124,10 +144,16 @@ class MarketDataManager:
 
         # Initialize Solana DEX streams
         self.pump_fun_stream = PumpFunStream(min_market_cap_usd=pump_fun_min_mcap) if enable_pump_fun else None
+        # Use RaydiumStream with Helius parser for detailed swap data
         self.raydium_stream = RaydiumStream(pools=raydium_pools) if enable_raydium else None
         self.jupiter_stream = JupiterStream() if enable_jupiter else None
         self.orca_stream = OrcaStream(pools=orca_pools) if enable_orca else None
         self.meteora_stream = MeteoraStream(pools=meteora_pools) if enable_meteora else None
+
+        # Initialize Tron DEX streams
+        self.sunswap_v3_stream = SunSwapV3Stream(pools=sunswap_v3_pools) if enable_sunswap_v3 else None
+        self.sunswap_v2_stream = SunSwapV2Stream(pairs=sunswap_v2_pairs) if enable_sunswap_v2 else None
+        self.sunswap_v1_stream = SunSwapV1Stream(pairs=sunswap_v1_pairs) if enable_sunswap_v1 else None
 
         # Initialize CEX streams
         self.binance_stream = BinanceStream(symbols=binance_symbols) if enable_binance else None
@@ -209,31 +235,50 @@ class MarketDataManager:
     async def _handle_pump_fun_trade(self, trade_data: Dict):
         """Handle Pump.fun bonding curve trade."""
         try:
-            # Track bonding curve price
-            token = trade_data['token_address']
-            price = trade_data['price']
-            self.dex_prices[f"PUMP_FUN:{token}"] = Decimal(str(price))
+            # Check if we have parsed swap details
+            details = trade_data.get('swap_details')
+            if details and 'token_address' in details:
+                # Track bonding curve price
+                token = details['token_address']
+                price = details.get('price')
+                if price:
+                    self.dex_prices[f"PUMP_FUN:{token}"] = Decimal(str(price))
         except Exception as e:
             logger.error(f"Error handling Pump.fun trade: {e}")
 
     async def _handle_pump_fun_graduate(self, grad_data: Dict):
         """Handle Pump.fun graduation to Raydium."""
         try:
-            logger.warning(
-                f"🎓 Pump.fun graduation: {grad_data['token_address'][:12]}... | "
-                f"Mcap: ${grad_data['final_market_cap_usd']:,.0f}"
-            )
+            # Check if we have parsed event details
+            details = grad_data.get('swap_details') or grad_data
+            if 'token_address' in details:
+                logger.warning(
+                    f"🎓 Pump.fun graduation: {details['token_address'][:12]}... | "
+                    f"Mcap: ${details.get('final_market_cap_usd', 0):,.0f}"
+                )
         except Exception as e:
             logger.error(f"Error handling Pump.fun graduation: {e}")
 
     async def _handle_raydium_swap(self, swap_data: Dict):
-        """Handle Raydium swap event."""
+        """Handle Raydium swap event with detailed data from parser."""
         try:
-            pool = swap_data['pool']
-            price = swap_data.get('price')
+            # Check if we have parsed swap details (nested structure)
+            details = swap_data.get('swap_details')
+            if details:
+                # Check if we have detailed swap data with tokens
+                token_in = details.get('token_in', {})
+                token_out = details.get('token_out', {})
+                price = details.get('price')
 
-            if price:
-                self.dex_prices[f"RAYDIUM:{pool}"] = Decimal(str(price))
+                if price and token_in and token_out:
+                    # Create pool identifier from token symbols
+                    pool = f"{token_in['symbol']}-{token_out['symbol']}"
+                    self.dex_prices[f"RAYDIUM:{pool}"] = Decimal(str(price))
+                elif 'pool' in details:
+                    # Fallback for basic swap data
+                    pool = details['pool']
+                    if price:
+                        self.dex_prices[f"RAYDIUM:{pool}"] = Decimal(str(price))
 
                 # Future: Check for cross-chain arbitrage (Solana vs Ethereum)
                 # For now, just track Solana prices
@@ -244,11 +289,14 @@ class MarketDataManager:
     async def _handle_jupiter_swap(self, swap_data: Dict):
         """Handle Jupiter aggregator swap event."""
         try:
-            pair = f"{swap_data['input_mint']}-{swap_data['output_mint']}"
-            price = swap_data.get('price')
+            # Check if we have parsed swap details
+            details = swap_data.get('swap_details')
+            if details:
+                pair = f"{details['inputMint']}-{details['outputMint']}"
+                price = details.get('price')
 
-            if price:
-                self.dex_prices[f"JUPITER:{pair}"] = Decimal(str(price))
+                if price:
+                    self.dex_prices[f"JUPITER:{pair}"] = Decimal(str(price))
 
         except Exception as e:
             logger.error(f"Error handling Jupiter swap: {e}")
@@ -256,11 +304,14 @@ class MarketDataManager:
     async def _handle_orca_swap(self, swap_data: Dict):
         """Handle Orca Whirlpool swap event."""
         try:
-            pool = swap_data['whirlpool']
-            price = swap_data.get('price')
+            # Check if we have parsed swap details
+            details = swap_data.get('swap_details')
+            if details and 'whirlpool' in details:
+                pool = details['whirlpool']
+                price = details.get('price')
 
-            if price:
-                self.dex_prices[f"ORCA:{pool}"] = Decimal(str(price))
+                if price:
+                    self.dex_prices[f"ORCA:{pool}"] = Decimal(str(price))
 
         except Exception as e:
             logger.error(f"Error handling Orca swap: {e}")
@@ -268,14 +319,56 @@ class MarketDataManager:
     async def _handle_meteora_swap(self, swap_data: Dict):
         """Handle Meteora DLMM swap event."""
         try:
+            # Check if we have parsed swap details
+            details = swap_data.get('swap_details')
+            if details and 'pool' in details:
+                pool = details['pool']
+                price = details.get('price')
+
+                if price:
+                    self.dex_prices[f"METEORA:{pool}"] = Decimal(str(price))
+
+        except Exception as e:
+            logger.error(f"Error handling Meteora swap: {e}")
+
+    async def _handle_sunswap_v3_swap(self, swap_data: Dict):
+        """Handle SunSwap V3 swap event."""
+        try:
             pool = swap_data['pool']
             price = swap_data.get('price')
 
             if price:
-                self.dex_prices[f"METEORA:{pool}"] = Decimal(str(price))
+                self.dex_prices[f"SUNSWAP_V3:{pool}"] = Decimal(str(price))
+
+                # Future: Check for cross-chain arbitrage (Tron vs Ethereum/Solana)
+                # For now, just track Tron prices
 
         except Exception as e:
-            logger.error(f"Error handling Meteora swap: {e}")
+            logger.error(f"Error handling SunSwap V3 swap: {e}")
+
+    async def _handle_sunswap_v2_swap(self, swap_data: Dict):
+        """Handle SunSwap V2 swap event."""
+        try:
+            pair = swap_data['pair']
+            price = swap_data.get('price')
+
+            if price:
+                self.dex_prices[f"SUNSWAP_V2:{pair}"] = Decimal(str(price))
+
+        except Exception as e:
+            logger.error(f"Error handling SunSwap V2 swap: {e}")
+
+    async def _handle_sunswap_v1_swap(self, swap_data: Dict):
+        """Handle SunSwap V1 swap event."""
+        try:
+            pair = swap_data['pair']
+            price = swap_data.get('price')
+
+            if price:
+                self.dex_prices[f"SUNSWAP_V1:{pair}"] = Decimal(str(price))
+
+        except Exception as e:
+            logger.error(f"Error handling SunSwap V1 swap: {e}")
 
     async def _check_arbitrage(
         self,
@@ -462,6 +555,24 @@ class MarketDataManager:
             tasks.append(self.meteora_stream.start())
             logger.info("✓ Meteora stream enabled (DLMM, 22% volume)")
 
+        # Start SunSwap V3 stream
+        if self.enable_sunswap_v3 and self.sunswap_v3_stream:
+            self.sunswap_v3_stream.on_swap(self._handle_sunswap_v3_swap)
+            tasks.append(self.sunswap_v3_stream.start())
+            logger.info("✓ SunSwap V3 stream enabled (Tron #1 DEX, 78-89% volume, $288M TVL)")
+
+        # Start SunSwap V2 stream
+        if self.enable_sunswap_v2 and self.sunswap_v2_stream:
+            self.sunswap_v2_stream.on_swap(self._handle_sunswap_v2_swap)
+            tasks.append(self.sunswap_v2_stream.start())
+            logger.info("✓ SunSwap V2 stream enabled (Tron meme coin DEX, $431M TVL)")
+
+        # Start SunSwap V1 stream
+        if self.enable_sunswap_v1 and self.sunswap_v1_stream:
+            self.sunswap_v1_stream.on_swap(self._handle_sunswap_v1_swap)
+            tasks.append(self.sunswap_v1_stream.start())
+            logger.info("✓ SunSwap V1 stream enabled (Original Tron DEX, $452M TVL)")
+
         # Start Binance stream
         if self.enable_binance and self.binance_stream:
             self.binance_stream.on_trade(self._handle_cex_trade)
@@ -515,6 +626,16 @@ class MarketDataManager:
 
         if self.meteora_stream:
             await self.meteora_stream.stop()
+
+        # Stop Tron DEX streams
+        if self.sunswap_v3_stream:
+            await self.sunswap_v3_stream.stop()
+
+        if self.sunswap_v2_stream:
+            await self.sunswap_v2_stream.stop()
+
+        if self.sunswap_v1_stream:
+            await self.sunswap_v1_stream.stop()
 
         # Stop CEX streams
         if self.binance_stream:

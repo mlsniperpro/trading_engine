@@ -178,8 +178,8 @@ async def startup_event():
         # Initialize market data manager
         logger.info("Initializing market data manager...")
         market_manager = MarketDataManager(
-            # Ethereum DEX streams - Uniswap V3 temporarily disabled to check other streams
-            enable_uniswap_v3=False,  # Temporarily disabled
+            # Ethereum DEX streams
+            enable_uniswap_v3=True,  # Re-enabled
             enable_curve=True,
             enable_sushiswap=True,
             enable_balancer=True,

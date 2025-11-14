@@ -25,7 +25,7 @@ from .balancer import BalancerStream
 
 # Solana DEXs
 from .solana import (
-    PumpFunStream, RaydiumStream, JupiterStream,
+    PumpFunStream, RaydiumStream, RaydiumGeyserStream, JupiterStream,
     OrcaStream, MeteoraStream
 )
 
@@ -38,6 +38,7 @@ __all__ = [
     # Solana
     "PumpFunStream",
     "RaydiumStream",
+    "RaydiumGeyserStream",
     "JupiterStream",
     "OrcaStream",
     "MeteoraStream",
