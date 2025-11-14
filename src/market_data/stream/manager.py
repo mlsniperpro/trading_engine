@@ -13,7 +13,6 @@ from .dex import (
     UniswapV3Stream, CurveStream, SushiSwapStream, BalancerStream,
     PumpFunStream, RaydiumStream, RaydiumGeyserStream, JupiterStream, OrcaStream, MeteoraStream
 )
-from .dex.tron import SunSwapV1Stream, SunSwapV2Stream, SunSwapV3Stream, SunIOStream
 from .cex import BinanceStream
 
 logger = logging.getLogger(__name__)
@@ -64,15 +63,6 @@ class MarketDataManager:
         raydium_pools: Optional[List[str]] = None,
         orca_pools: Optional[List[str]] = None,
         meteora_pools: Optional[List[str]] = None,
-        # Tron DEX
-        enable_sunswap_v3: bool = False,
-        enable_sunswap_v2: bool = False,
-        enable_sunswap_v1: bool = False,
-        enable_sun_io: bool = False,
-        sunswap_v3_pools: Optional[List[str]] = None,
-        sunswap_v2_pairs: Optional[List[str]] = None,
-        sunswap_v1_pairs: Optional[List[str]] = None,
-        sun_io_pairs: Optional[List[str]] = None,
         # CEX (Centralized Exchanges)
         enable_binance: bool = True,
         binance_symbols: Optional[List[str]] = None,
@@ -102,15 +92,6 @@ class MarketDataManager:
             raydium_pools: List of Raydium pools to monitor
             orca_pools: List of Orca Whirlpools to monitor
             meteora_pools: List of Meteora DLMM pools to monitor
-            # Tron DEX
-            enable_sunswap_v3: Enable SunSwap V3 stream (78-89% TRON DEX volume, $288M TVL)
-            enable_sunswap_v2: Enable SunSwap V2 stream (meme coin support, $431M TVL)
-            enable_sunswap_v1: Enable SunSwap V1 stream (original TRON DEX, $452M TVL)
-            enable_sun_io: Enable SUN.io stream (core TRON DeFi protocol, $2.62M TVL)
-            sunswap_v3_pools: List of SunSwap V3 pools to monitor
-            sunswap_v2_pairs: List of SunSwap V2 pairs to monitor
-            sunswap_v1_pairs: List of SunSwap V1 pairs to monitor
-            sun_io_pairs: List of SUN.io pairs to monitor
             # CEX (Centralized Exchanges)
             enable_binance: Enable Binance stream
             binance_symbols: List of Binance symbols to monitor
@@ -130,12 +111,6 @@ class MarketDataManager:
         self.enable_orca = enable_orca
         self.enable_meteora = enable_meteora
 
-        # Tron DEX flags
-        self.enable_sunswap_v3 = enable_sunswap_v3
-        self.enable_sunswap_v2 = enable_sunswap_v2
-        self.enable_sunswap_v1 = enable_sunswap_v1
-        self.enable_sun_io = enable_sun_io
-
         # CEX flags
         self.enable_binance = enable_binance
 
@@ -154,12 +129,6 @@ class MarketDataManager:
         self.jupiter_stream = JupiterStream() if enable_jupiter else None
         self.orca_stream = OrcaStream(pools=orca_pools) if enable_orca else None
         self.meteora_stream = MeteoraStream(pools=meteora_pools) if enable_meteora else None
-
-        # Initialize Tron DEX streams
-        self.sunswap_v3_stream = SunSwapV3Stream(pools=sunswap_v3_pools) if enable_sunswap_v3 else None
-        self.sunswap_v2_stream = SunSwapV2Stream(pairs=sunswap_v2_pairs) if enable_sunswap_v2 else None
-        self.sunswap_v1_stream = SunSwapV1Stream(pairs=sunswap_v1_pairs) if enable_sunswap_v1 else None
-        self.sun_io_stream = SunIOStream(pairs=sun_io_pairs) if enable_sun_io else None
 
         # Initialize CEX streams
         self.binance_stream = BinanceStream(symbols=binance_symbols) if enable_binance else None
@@ -336,57 +305,6 @@ class MarketDataManager:
 
         except Exception as e:
             logger.error(f"Error handling Meteora swap: {e}")
-
-    async def _handle_sunswap_v3_swap(self, swap_data: Dict):
-        """Handle SunSwap V3 swap event."""
-        try:
-            pool = swap_data['pool']
-            price = swap_data.get('price')
-
-            if price:
-                self.dex_prices[f"SUNSWAP_V3:{pool}"] = Decimal(str(price))
-
-                # Future: Check for cross-chain arbitrage (Tron vs Ethereum/Solana)
-                # For now, just track Tron prices
-
-        except Exception as e:
-            logger.error(f"Error handling SunSwap V3 swap: {e}")
-
-    async def _handle_sunswap_v2_swap(self, swap_data: Dict):
-        """Handle SunSwap V2 swap event."""
-        try:
-            pair = swap_data['pair']
-            price = swap_data.get('price')
-
-            if price:
-                self.dex_prices[f"SUNSWAP_V2:{pair}"] = Decimal(str(price))
-
-        except Exception as e:
-            logger.error(f"Error handling SunSwap V2 swap: {e}")
-
-    async def _handle_sunswap_v1_swap(self, swap_data: Dict):
-        """Handle SunSwap V1 swap event."""
-        try:
-            pair = swap_data['pair']
-            price = swap_data.get('price')
-
-            if price:
-                self.dex_prices[f"SUNSWAP_V1:{pair}"] = Decimal(str(price))
-
-        except Exception as e:
-            logger.error(f"Error handling SunSwap V1 swap: {e}")
-
-    async def _handle_sun_io_swap(self, swap_data: Dict):
-        """Handle SUN.io swap event."""
-        try:
-            pair = swap_data.get('pair', 'unknown')
-            price = swap_data.get('price')
-
-            if price:
-                self.dex_prices[f"SUN_IO:{pair}"] = Decimal(str(price))
-
-        except Exception as e:
-            logger.error(f"Error handling SUN.io swap: {e}")
 
     async def _check_arbitrage(
         self,
@@ -573,30 +491,6 @@ class MarketDataManager:
             tasks.append(self.meteora_stream.start())
             logger.info("✓ Meteora stream enabled (DLMM, 22% volume)")
 
-        # Start SunSwap V3 stream
-        if self.enable_sunswap_v3 and self.sunswap_v3_stream:
-            self.sunswap_v3_stream.on_swap(self._handle_sunswap_v3_swap)
-            tasks.append(self.sunswap_v3_stream.start())
-            logger.info("✓ SunSwap V3 stream enabled (Tron #1 DEX, 78-89% volume, $288M TVL)")
-
-        # Start SunSwap V2 stream
-        if self.enable_sunswap_v2 and self.sunswap_v2_stream:
-            self.sunswap_v2_stream.on_swap(self._handle_sunswap_v2_swap)
-            tasks.append(self.sunswap_v2_stream.start())
-            logger.info("✓ SunSwap V2 stream enabled (Tron meme coin DEX, $431M TVL)")
-
-        # Start SunSwap V1 stream
-        if self.enable_sunswap_v1 and self.sunswap_v1_stream:
-            self.sunswap_v1_stream.on_swap(self._handle_sunswap_v1_swap)
-            tasks.append(self.sunswap_v1_stream.start())
-            logger.info("✓ SunSwap V1 stream enabled (Original Tron DEX, $452M TVL)")
-
-        # Start SUN.io stream
-        if self.enable_sun_io and self.sun_io_stream:
-            self.sun_io_stream.on_swap(self._handle_sun_io_swap)
-            tasks.append(self.sun_io_stream.start())
-            logger.info("✓ SUN.io stream enabled (Core TRON DeFi protocol, $2.62M TVL)")
-
         # Start Binance stream
         if self.enable_binance and self.binance_stream:
             self.binance_stream.on_trade(self._handle_cex_trade)
@@ -650,19 +544,6 @@ class MarketDataManager:
 
         if self.meteora_stream:
             await self.meteora_stream.stop()
-
-        # Stop Tron DEX streams
-        if self.sunswap_v3_stream:
-            await self.sunswap_v3_stream.stop()
-
-        if self.sunswap_v2_stream:
-            await self.sunswap_v2_stream.stop()
-
-        if self.sunswap_v1_stream:
-            await self.sunswap_v1_stream.stop()
-
-        if self.sun_io_stream:
-            await self.sun_io_stream.stop()
 
         # Stop CEX streams
         if self.binance_stream:
