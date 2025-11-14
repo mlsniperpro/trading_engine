@@ -10,7 +10,7 @@ Provides real-time monitoring for major Ethereum decentralized exchanges:
 All streams use Ethereum JSON-RPC for event monitoring.
 """
 
-from .uniswap_v3 import UniswapV3Stream
+from .uniswap_v3 import DEXStream as UniswapV3Stream
 from .curve import CurveStream
 from .sushiswap import SushiSwapStream
 from .balancer import BalancerStream
