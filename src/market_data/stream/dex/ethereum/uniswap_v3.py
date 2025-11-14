@@ -338,6 +338,7 @@ class DEXStream:
             # Extract basic transaction info
             value_eth = float(tx.get('value', 0)) / 1e18
             gas_price_gwei = float(tx.get('gasPrice', 0)) / 1e9 if tx.get('gasPrice') else 0
+            max_priority_fee = float(tx.get('maxPriorityFeePerGas', 0)) / 1e9 if tx.get('maxPriorityFeePerGas') else 0
 
             pending_tx_data = {
                 'exchange': 'UNISWAP_V3',
@@ -347,22 +348,38 @@ class DEXStream:
                 'to': to_address,
                 'value_eth': Decimal(str(value_eth)),
                 'gas_price_gwei': Decimal(str(gas_price_gwei)),
+                'max_priority_fee_gwei': Decimal(str(max_priority_fee)),
+                'input_data': tx.get('input', '0x'),
                 'timestamp': datetime.now(),
                 'chain': self.chain,
                 'status': 'pending'
             }
 
-            # Log high-value pending transactions
-            if value_eth > 1.0:  # Log transactions > 1 ETH
-                logger.info(
-                    f"⏳ Pending TX #{self.pending_tx_count} | "
+            # Tiered logging based on significance
+            if value_eth > 10.0:
+                logger.warning(
+                    f"🐋 WHALE TX #{self.pending_tx_count} | "
                     f"Pool: {pool_name or 'ROUTER'} | "
                     f"Value: {value_eth:.4f} ETH | "
                     f"Gas: {gas_price_gwei:.2f} Gwei | "
                     f"TX: {tx_hash[:16]}..."
                 )
+            elif value_eth > 1.0:
+                logger.info(
+                    f"⏳ Large TX #{self.pending_tx_count} | "
+                    f"Pool: {pool_name or 'ROUTER'} | "
+                    f"Value: {value_eth:.4f} ETH | "
+                    f"Gas: {gas_price_gwei:.2f} Gwei"
+                )
+            else:
+                # Still log in debug mode for full visibility
+                logger.debug(
+                    f"⏳ TX #{self.pending_tx_count} | "
+                    f"Pool: {pool_name or 'ROUTER'} | "
+                    f"Value: {value_eth:.4f} ETH"
+                )
 
-            # Notify callbacks
+            # ALWAYS notify callbacks regardless of size - let strategy decide
             await self._notify_pending_tx_callbacks(pending_tx_data)
 
         except Exception as e:
