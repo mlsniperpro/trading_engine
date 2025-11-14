@@ -10,7 +10,7 @@ import logging
 from typing import Callable, Optional, List
 from datetime import datetime
 
-from ...yellowstone import YellowstoneClient, SwapData
+from .client import YellowstoneClient, SwapData
 
 
 logger = logging.getLogger(__name__)

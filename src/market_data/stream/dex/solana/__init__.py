@@ -23,7 +23,7 @@ def _load_config():
 _CONFIG = _load_config()
 
 # Import generic Yellowstone stream
-from .yellowstone_dex_stream import YellowstoneDEXStream
+from .yellowstone import YellowstoneDEXStream
 
 # Factory functions for each DEX
 def JupiterStream(**kwargs):
