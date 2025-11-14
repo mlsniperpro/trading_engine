@@ -1,11 +1,12 @@
 """
-JustMoney stream for TRON.
+SUN.io stream for TRON.
 
-JustMoney is a smaller but growing TRON DEX:
-- Multi-chain swap support
-- First DEX with full taxed token support on TRON
-- Lower volume but active community
-- Recent 24h volume: ~$3.5K (growing)
+SUN.io is the #4 TRON DEX by TVL:
+- TVL: $2.62M
+- Core protocol of the TRON DeFi ecosystem
+- Acquired JustSwap in 2021 to create SunSwap
+- Supports multiple token pairs
+- Active trading and liquidity provision
 """
 
 import logging
@@ -17,49 +18,48 @@ from .base import TronDEXStream
 logger = logging.getLogger(__name__)
 
 
-# JustMoney contract addresses
-# Note: These are estimates based on available data
-# Actual addresses should be verified from JustMoney official docs
-JUSTMONEY_ROUTER = "TBD"  # TODO: Get actual JustMoney router address
-JUSTMONEY_FACTORY = "TBD"  # TODO: Get actual JustMoney factory address
+# SUN.io contract addresses
+# Note: These need to be verified from official SUN.io documentation
+SUN_IO_ROUTER = "TBD"  # TODO: Get actual SUN.io router address
+SUN_IO_FACTORY = "TBD"  # TODO: Get actual SUN.io factory address
 
-# Top JustMoney pairs
-JUSTMONEY_PAIRS = {
-    "TRX-USDT": {
+# Top SUN.io pairs
+SUN_IO_PAIRS = {
+    "SUN-TRX": {
         "address": "TBD",
-        "token0": "TRX",
-        "token1": "USDT",
+        "token0": "SUN",
+        "token1": "TRX",
     },
-    "WTRX-USDT": {
+    "SUN-USDT": {
         "address": "TBD",
-        "token0": "WTRX",
+        "token0": "SUN",
         "token1": "USDT",
     },
 }
 
 
-class JustMoneyStream(TronDEXStream):
+class SunIOStream(TronDEXStream):
     """
-    JustMoney stream - Multi-chain TRON DEX.
+    SUN.io stream - Core TRON DeFi protocol.
 
-    Monitors swap events on JustMoney DEX.
+    Monitors swap events on SUN.io DEX.
     Uses TronGrid API with efficient polling.
 
     Market Stats (2025):
-    - First multi-chain swap on TRON
-    - Full support for taxed tokens
-    - Growing community DEX
-    - Lower volume but increasing adoption
+    - TVL: $2.62M (4th largest TRON DEX)
+    - Core protocol of TRON DeFi ecosystem
+    - Created SunSwap brand after acquiring JustSwap
+    - Active community and development
     """
 
     def __init__(
         self,
         pairs: Optional[list] = None,
         trongrid_api_key: Optional[str] = None,
-        poll_interval: float = 3.0,  # Slightly longer interval for lower volume DEX
+        poll_interval: float = 2.5,
     ):
         """
-        Initialize JustMoney stream.
+        Initialize SUN.io stream.
 
         Args:
             pairs: List of pair addresses to monitor (default: all pairs)
@@ -67,43 +67,40 @@ class JustMoneyStream(TronDEXStream):
             poll_interval: Seconds between polls
         """
         # Use router/factory as primary contract to monitor
-        # If we don't have the actual address, this will need to be updated
-        contract_address = JUSTMONEY_ROUTER if JUSTMONEY_ROUTER != "TBD" else "TBD"
+        contract_address = SUN_IO_ROUTER if SUN_IO_ROUTER != "TBD" else "TBD"
 
         super().__init__(
-            dex_name="justmoney",
+            dex_name="sun_io",
             contract_address=contract_address,
             event_name="Swap",
             trongrid_api_key=trongrid_api_key,
             poll_interval=poll_interval,
         )
 
-        self.pairs_to_monitor = pairs or list(JUSTMONEY_PAIRS.keys())
+        self.pairs_to_monitor = pairs or list(SUN_IO_PAIRS.keys())
 
         if contract_address == "TBD":
             logger.warning(
-                "JustMoney contract address not configured. "
+                "SUN.io contract address not configured. "
                 "Stream will not work until updated with actual address."
             )
         else:
             logger.info(
-                f"JustMoney stream initialized - monitoring {len(self.pairs_to_monitor)} pairs "
-                f"(multi-chain DEX, taxed token support)"
+                f"SUN.io stream initialized - monitoring {len(self.pairs_to_monitor)} pairs "
+                f"(TVL: $2.62M, TRON DeFi core protocol)"
             )
 
     def _parse_swap_event(self, event: Dict) -> Optional[Dict]:
         """
-        Parse JustMoney swap event.
+        Parse SUN.io swap event.
 
-        JustMoney event structure (likely Uniswap V2 compatible):
+        SUN.io event structure (Uniswap V2 compatible):
         - sender: address
         - amount0In: uint256
         - amount1In: uint256
         - amount0Out: uint256
         - amount1Out: uint256
         - to: address (recipient)
-
-        May have additional fields for taxed token handling.
 
         Args:
             event: Raw TronGrid event
@@ -156,15 +153,15 @@ class JustMoneyStream(TronDEXStream):
                 "transaction_id": event.get("transaction_id"),
                 "block_number": event.get("block_number"),
                 "block_timestamp": event.get("block_timestamp"),
-                "dex": "justmoney",
+                "dex": "sun_io",
             }
 
         except Exception as e:
-            logger.error(f"Error parsing JustMoney swap event: {e}")
+            logger.error(f"Error parsing SUN.io swap event: {e}")
             return None
 
 
 # Factory function for backward compatibility
-def create_justmoney_stream(**kwargs):
-    """Create JustMoney stream instance."""
-    return JustMoneyStream(**kwargs)
+def create_sun_io_stream(**kwargs):
+    """Create SUN.io stream instance."""
+    return SunIOStream(**kwargs)
