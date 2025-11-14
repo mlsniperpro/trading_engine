@@ -52,7 +52,8 @@ class DEXStream:
         self,
         alchemy_api_key: Optional[str] = None,
         pools: Optional[List[str]] = None,
-        chain: str = "ethereum"
+        chain: str = "ethereum",
+        enable_mempool: bool = True
     ):
         """
         Initialize DEX stream.
@@ -61,9 +62,11 @@ class DEXStream:
             alchemy_api_key: Alchemy API key (or set ALCHEMY_API_KEY in .env)
             pools: List of pool names to monitor (default: all major ETH pools)
             chain: Blockchain network (currently only "ethereum" supported)
+            enable_mempool: Monitor pending transactions in mempool (default: True)
         """
         self.api_key = alchemy_api_key or os.getenv("ALCHEMY_API_KEY")
         self.chain = chain
+        self.enable_mempool = enable_mempool
 
         if not self.api_key:
             raise ValueError("Alchemy API key required. Set ALCHEMY_API_KEY in .env")
@@ -81,7 +84,9 @@ class DEXStream:
         self.pool_contracts = {}
         self.current_prices = {}
         self.swap_callbacks: List[Callable] = []
+        self.pending_tx_callbacks: List[Callable] = []
         self.swap_count = 0
+        self.pending_tx_count = 0
         self._running = False
 
     def _calculate_price_from_sqrt(
@@ -298,6 +303,95 @@ class DEXStream:
         except Exception as e:
             logger.error(f"Error processing swap event: {e}")
 
+    async def _handle_pending_transaction(self, tx_hash: str):
+        """Process a pending transaction from mempool."""
+        try:
+            # Fetch transaction details
+            tx = await self.w3.eth.get_transaction(tx_hash)
+
+            if not tx or not tx.get('to'):
+                return
+
+            # Check if transaction is to one of our monitored pools
+            to_address = tx['to'].lower() if tx['to'] else None
+
+            pool_name = None
+            pool_config = None
+
+            for name, config in self.pool_configs.items():
+                if config['address'].lower() == to_address:
+                    pool_name = name
+                    pool_config = config
+                    break
+
+            # Also check router addresses
+            if not pool_name:
+                router_addresses = [
+                    UNISWAP_V3_ROUTER.lower(),
+                    UNISWAP_V3_SWAP_ROUTER_02.lower()
+                ]
+                if to_address not in router_addresses:
+                    return  # Not a Uniswap transaction
+
+            self.pending_tx_count += 1
+
+            # Extract basic transaction info
+            value_eth = float(tx.get('value', 0)) / 1e18
+            gas_price_gwei = float(tx.get('gasPrice', 0)) / 1e9 if tx.get('gasPrice') else 0
+
+            pending_tx_data = {
+                'exchange': 'UNISWAP_V3',
+                'pool': pool_name or 'ROUTER',
+                'tx_hash': tx_hash if tx_hash.startswith('0x') else '0x' + tx_hash,
+                'from': tx.get('from'),
+                'to': to_address,
+                'value_eth': Decimal(str(value_eth)),
+                'gas_price_gwei': Decimal(str(gas_price_gwei)),
+                'timestamp': datetime.now(),
+                'chain': self.chain,
+                'status': 'pending'
+            }
+
+            # Log high-value pending transactions
+            if value_eth > 1.0:  # Log transactions > 1 ETH
+                logger.info(
+                    f"⏳ Pending TX #{self.pending_tx_count} | "
+                    f"Pool: {pool_name or 'ROUTER'} | "
+                    f"Value: {value_eth:.4f} ETH | "
+                    f"Gas: {gas_price_gwei:.2f} Gwei | "
+                    f"TX: {tx_hash[:16]}..."
+                )
+
+            # Notify callbacks
+            await self._notify_pending_tx_callbacks(pending_tx_data)
+
+        except Exception as e:
+            # Don't log every error (mempool has many invalid/failed txs)
+            logger.debug(f"Error processing pending tx {tx_hash[:16]}...: {e}")
+
+    async def subscribe_to_mempool(self):
+        """Subscribe to pending transactions in mempool."""
+        logger.info("🔮 Subscribing to Ethereum mempool (pending transactions)...")
+
+        try:
+            subscription_id = await self.w3.eth.subscribe("newPendingTransactions")
+            logger.info(f"✓ Subscribed to mempool (ID: {subscription_id})")
+        except Exception as e:
+            logger.error(f"Mempool subscription failed: {e}")
+            raise
+
+        # Listen for pending transactions
+        async for payload in self.w3.socket.process_subscriptions():
+            if not self._running:
+                break
+
+            try:
+                tx_hash = payload["result"]
+                # Process pending transaction asynchronously (don't block stream)
+                asyncio.create_task(self._handle_pending_transaction(tx_hash))
+            except Exception as e:
+                logger.debug(f"Error receiving pending tx: {e}")
+
     async def subscribe_to_swaps(self):
         """Subscribe to Uniswap V3 swap events for all monitored pools."""
         logger.info(f"Subscribing to {len(self.pool_configs)} Uniswap V3 pools...")
@@ -354,6 +448,17 @@ class DEXStream:
             except Exception as e:
                 logger.error(f"Error in swap callback: {e}")
 
+    async def _notify_pending_tx_callbacks(self, tx_data: Dict):
+        """Notify all registered callbacks of pending transaction."""
+        for callback in self.pending_tx_callbacks:
+            try:
+                if asyncio.iscoroutinefunction(callback):
+                    await callback(tx_data)
+                else:
+                    callback(tx_data)
+            except Exception as e:
+                logger.error(f"Error in pending tx callback: {e}")
+
     def on_swap(self, callback: Callable):
         """
         Register callback for DEX swap events.
@@ -369,11 +474,37 @@ class DEXStream:
         """
         self.swap_callbacks.append(callback)
 
+    def on_pending_tx(self, callback: Callable):
+        """
+        Register callback for pending transaction events.
+
+        Args:
+            callback: Function(tx_data) - called on each pending tx
+
+        Example:
+            async def my_handler(data):
+                print(f"Pending: {data['pool']} | {data['value_eth']} ETH")
+
+            stream.on_pending_tx(my_handler)
+        """
+        self.pending_tx_callbacks.append(callback)
+
     async def start(self):
         """Start DEX stream."""
         self._running = True
         await self.connect()
-        await self.subscribe_to_swaps()
+
+        # Start both subscriptions concurrently
+        tasks = [asyncio.create_task(self.subscribe_to_swaps())]
+
+        if self.enable_mempool:
+            tasks.append(asyncio.create_task(self.subscribe_to_mempool()))
+            logger.info("✓ Mempool monitoring enabled")
+        else:
+            logger.info("⚠️  Mempool monitoring disabled")
+
+        # Wait for both subscriptions to complete
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     async def stop(self):
         """Stop DEX stream."""

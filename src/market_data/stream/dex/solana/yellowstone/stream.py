@@ -62,6 +62,12 @@ class YellowstoneDEXStream:
         self._parsed_count = 0
         self._error_count = 0
         self._start_time: Optional[datetime] = None
+        self._reconnect_count = 0
+
+        # Reconnect settings
+        self._should_stop = False
+        self._max_reconnect_delay = 60  # Max 60 seconds between reconnects
+        self._initial_reconnect_delay = 1  # Start with 1 second
 
         logger.info(
             f"🟣 Initialized {dex_name.upper()} Yellowstone stream "
@@ -95,6 +101,7 @@ class YellowstoneDEXStream:
 
     async def stop(self):
         """Stop the stream gracefully."""
+        self._should_stop = True
         try:
             if self.client:
                 await self.client.close()
@@ -103,47 +110,98 @@ class YellowstoneDEXStream:
 
     async def start(self):
         """
-        Start monitoring DEX swaps via Yellowstone gRPC.
+        Start monitoring DEX swaps via Yellowstone gRPC with auto-reconnect.
 
         Connects to PublicNode's FREE Yellowstone gRPC and streams all
         transactions for this DEX in real-time with FULL parsed data.
+
+        Automatically reconnects on connection failures with exponential backoff.
         """
         logger.info(f"🚀 Starting {self.dex_name.upper()} Yellowstone stream...")
         self._start_time = datetime.now()
 
-        try:
-            # Connect to Yellowstone gRPC
-            await self.client.connect()
+        reconnect_delay = self._initial_reconnect_delay
 
-            # Test connection
-            pong = await self.client.ping()
-            logger.info(f"✅ Geyser connection verified: {pong}")
+        while not self._should_stop:
+            try:
+                # Recreate client if needed (after disconnect)
+                if self._reconnect_count > 0:
+                    self.client = YellowstoneClient(
+                        endpoint=self.geyser_endpoint,
+                        program_id=self.program_id
+                    )
 
-            logger.info(
-                f"📡 Subscribing to {self.dex_name.upper()} program: {self.program_id} "
-                f"({self.commitment})"
-            )
+                # Connect to Yellowstone gRPC
+                await self.client.connect()
 
-            # Subscribe to transactions
-            async for swap_data in self.client.subscribe_to_program(
-                program_ids=[self.program_id],
-                commitment=self.commitment,
-            ):
-                await self._handle_swap(swap_data)
+                # Test connection
+                pong = await self.client.ping()
+                logger.info(f"✅ Geyser connection verified: {pong}")
 
-        except KeyboardInterrupt:
-            logger.info(f"⏹️  Stopping {self.dex_name.upper()} Yellowstone stream...")
-        except Exception as e:
-            logger.error(f"❌ {self.dex_name.upper()} Yellowstone stream error: {e}")
-            self._error_count += 1
-            for callback in self._error_callbacks:
+                # Reset reconnect delay on successful connection
+                if self._reconnect_count > 0:
+                    logger.info(
+                        f"🔄 {self.dex_name.upper()} reconnected successfully "
+                        f"(reconnect #{self._reconnect_count})"
+                    )
+                reconnect_delay = self._initial_reconnect_delay
+
+                logger.info(
+                    f"📡 Subscribing to {self.dex_name.upper()} program: {self.program_id} "
+                    f"({self.commitment})"
+                )
+
+                # Subscribe to transactions
+                async for swap_data in self.client.subscribe_to_program(
+                    program_ids=[self.program_id],
+                    commitment=self.commitment,
+                ):
+                    await self._handle_swap(swap_data)
+
+            except KeyboardInterrupt:
+                logger.info(f"⏹️  Stopping {self.dex_name.upper()} Yellowstone stream...")
+                self._should_stop = True
+                break
+
+            except Exception as e:
+                logger.error(f"❌ {self.dex_name.upper()} Yellowstone stream error: {e}")
+                self._error_count += 1
+
+                # Fire error callbacks
+                for callback in self._error_callbacks:
+                    try:
+                        callback({"error": str(e), "dex": self.dex_name})
+                    except Exception as cb_error:
+                        logger.error(f"Error callback failed: {cb_error}")
+
+                # Close current connection
                 try:
-                    callback({"error": str(e), "dex": self.dex_name})
-                except Exception as cb_error:
-                    logger.error(f"Error callback failed: {cb_error}")
-        finally:
+                    await self.client.close()
+                except Exception:
+                    pass
+
+                # Don't reconnect if stopping
+                if self._should_stop:
+                    break
+
+                # Auto-reconnect with exponential backoff
+                self._reconnect_count += 1
+                logger.info(
+                    f"🔄 {self.dex_name.upper()} will reconnect in {reconnect_delay}s "
+                    f"(attempt #{self._reconnect_count})"
+                )
+                await asyncio.sleep(reconnect_delay)
+
+                # Exponential backoff: 1s -> 2s -> 4s -> 8s -> ... -> max 60s
+                reconnect_delay = min(reconnect_delay * 2, self._max_reconnect_delay)
+
+        # Final cleanup
+        try:
             await self.client.close()
-            self._log_stats()
+        except Exception:
+            pass
+
+        self._log_stats()
 
     async def _handle_swap(self, swap_data: SwapData):
         """Process swap data from Yellowstone stream."""
@@ -202,5 +260,6 @@ class YellowstoneDEXStream:
                 f"{self._swap_count} swaps "
                 f"({self._parsed_count} parsed), "
                 f"{self._error_count} errors, "
+                f"{self._reconnect_count} reconnects, "
                 f"{duration:.1f}s runtime"
             )
