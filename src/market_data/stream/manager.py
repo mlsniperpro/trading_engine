@@ -13,7 +13,7 @@ from .dex import (
     UniswapV3Stream, CurveStream, SushiSwapStream, BalancerStream,
     PumpFunStream, RaydiumStream, RaydiumGeyserStream, JupiterStream, OrcaStream, MeteoraStream
 )
-from .dex.tron import SunSwapV1Stream, SunSwapV2Stream, SunSwapV3Stream
+from .dex.tron import SunSwapV1Stream, SunSwapV2Stream, SunSwapV3Stream, JustMoneyStream
 from .cex import BinanceStream
 
 logger = logging.getLogger(__name__)
@@ -68,9 +68,11 @@ class MarketDataManager:
         enable_sunswap_v3: bool = False,
         enable_sunswap_v2: bool = False,
         enable_sunswap_v1: bool = False,
+        enable_justmoney: bool = False,
         sunswap_v3_pools: Optional[List[str]] = None,
         sunswap_v2_pairs: Optional[List[str]] = None,
         sunswap_v1_pairs: Optional[List[str]] = None,
+        justmoney_pairs: Optional[List[str]] = None,
         # CEX (Centralized Exchanges)
         enable_binance: bool = True,
         binance_symbols: Optional[List[str]] = None,
@@ -104,9 +106,11 @@ class MarketDataManager:
             enable_sunswap_v3: Enable SunSwap V3 stream (78-89% TRON DEX volume, $288M TVL)
             enable_sunswap_v2: Enable SunSwap V2 stream (meme coin support, $431M TVL)
             enable_sunswap_v1: Enable SunSwap V1 stream (original TRON DEX, $452M TVL)
+            enable_justmoney: Enable JustMoney stream (multi-chain DEX, taxed token support)
             sunswap_v3_pools: List of SunSwap V3 pools to monitor
             sunswap_v2_pairs: List of SunSwap V2 pairs to monitor
             sunswap_v1_pairs: List of SunSwap V1 pairs to monitor
+            justmoney_pairs: List of JustMoney pairs to monitor
             # CEX (Centralized Exchanges)
             enable_binance: Enable Binance stream
             binance_symbols: List of Binance symbols to monitor
@@ -130,6 +134,7 @@ class MarketDataManager:
         self.enable_sunswap_v3 = enable_sunswap_v3
         self.enable_sunswap_v2 = enable_sunswap_v2
         self.enable_sunswap_v1 = enable_sunswap_v1
+        self.enable_justmoney = enable_justmoney
 
         # CEX flags
         self.enable_binance = enable_binance
@@ -154,6 +159,7 @@ class MarketDataManager:
         self.sunswap_v3_stream = SunSwapV3Stream(pools=sunswap_v3_pools) if enable_sunswap_v3 else None
         self.sunswap_v2_stream = SunSwapV2Stream(pairs=sunswap_v2_pairs) if enable_sunswap_v2 else None
         self.sunswap_v1_stream = SunSwapV1Stream(pairs=sunswap_v1_pairs) if enable_sunswap_v1 else None
+        self.justmoney_stream = JustMoneyStream(pairs=justmoney_pairs) if enable_justmoney else None
 
         # Initialize CEX streams
         self.binance_stream = BinanceStream(symbols=binance_symbols) if enable_binance else None
@@ -370,6 +376,18 @@ class MarketDataManager:
         except Exception as e:
             logger.error(f"Error handling SunSwap V1 swap: {e}")
 
+    async def _handle_justmoney_swap(self, swap_data: Dict):
+        """Handle JustMoney swap event."""
+        try:
+            pair = swap_data.get('pair', 'unknown')
+            price = swap_data.get('price')
+
+            if price:
+                self.dex_prices[f"JUSTMONEY:{pair}"] = Decimal(str(price))
+
+        except Exception as e:
+            logger.error(f"Error handling JustMoney swap: {e}")
+
     async def _check_arbitrage(
         self,
         source: str,
@@ -573,6 +591,12 @@ class MarketDataManager:
             tasks.append(self.sunswap_v1_stream.start())
             logger.info("✓ SunSwap V1 stream enabled (Original Tron DEX, $452M TVL)")
 
+        # Start JustMoney stream
+        if self.enable_justmoney and self.justmoney_stream:
+            self.justmoney_stream.on_swap(self._handle_justmoney_swap)
+            tasks.append(self.justmoney_stream.start())
+            logger.info("✓ JustMoney stream enabled (Multi-chain Tron DEX, taxed token support)")
+
         # Start Binance stream
         if self.enable_binance and self.binance_stream:
             self.binance_stream.on_trade(self._handle_cex_trade)
@@ -636,6 +660,9 @@ class MarketDataManager:
 
         if self.sunswap_v1_stream:
             await self.sunswap_v1_stream.stop()
+
+        if self.justmoney_stream:
+            await self.justmoney_stream.stop()
 
         # Stop CEX streams
         if self.binance_stream:
