@@ -1,0 +1,92 @@
+# DEX Aggregator Configuration
+# Configuration for DEX aggregators across different blockchains
+
+aggregators:
+  # ========================================================================
+  # Solana DEX Aggregators
+  # ========================================================================
+  solana:
+    primary: jupiter
+    backup: null
+
+    aggregators:
+      # Jupiter - Premier Solana DEX aggregator
+      jupiter:
+        api_url: https://quote-api.jup.ag/v6
+        api_key: null  # No API key required
+        slippage_bps: 50  # 0.5% default slippage
+        timeout_seconds: 10
+
+  # ========================================================================
+  # Ethereum DEX Aggregators
+  # ========================================================================
+  ethereum:
+    primary: 1inch
+    backup: matcha
+
+    aggregators:
+      # 1inch - Leading EVM aggregator
+      1inch:
+        api_url: https://api.1inch.dev/swap/v5.2/1
+        api_key: ${ONEINCH_API_KEY:}  # Optional API key
+        slippage_bps: 50
+        timeout_seconds: 10
+
+      # Matcha (0x Protocol)
+      matcha:
+        api_url: https://api.0x.org/swap/v1
+        api_key: null
+        slippage_bps: 100  # 1% for backup
+        timeout_seconds: 10
+
+      # ParaSwap
+      paraswap:
+        api_url: https://apiv5.paraswap.io
+        api_key: null
+        slippage_bps: 50
+        timeout_seconds: 10
+
+  # ========================================================================
+  # Base DEX Aggregators
+  # ========================================================================
+  base:
+    primary: 1inch
+    backup: null
+
+    aggregators:
+      # 1inch on Base
+      1inch:
+        api_url: https://api.1inch.dev/swap/v5.2/8453  # Base chain ID
+        api_key: ${ONEINCH_API_KEY:}
+        slippage_bps: 50
+        timeout_seconds: 10
+
+  # ========================================================================
+  # Arbitrum DEX Aggregators
+  # ========================================================================
+  arbitrum:
+    primary: 1inch
+    backup: null
+
+    aggregators:
+      # 1inch on Arbitrum
+      1inch:
+        api_url: https://api.1inch.dev/swap/v5.2/42161  # Arbitrum chain ID
+        api_key: ${ONEINCH_API_KEY:}
+        slippage_bps: 50
+        timeout_seconds: 10
+
+  # ========================================================================
+  # Polygon DEX Aggregators
+  # ========================================================================
+  polygon:
+    primary: 1inch
+    backup: null
+
+    aggregators:
+      # 1inch on Polygon
+      1inch:
+        api_url: https://api.1inch.dev/swap/v5.2/137  # Polygon chain ID
+        api_key: ${ONEINCH_API_KEY:}
+        slippage_bps: 50
+        timeout_seconds: 10

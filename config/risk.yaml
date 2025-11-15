@@ -1,0 +1,51 @@
+# Risk Management Configuration
+# Defines position sizing, limits, and stop-loss rules
+
+# ============================================================================
+# Position Sizing
+# ============================================================================
+position_sizing:
+  # Default position size as % of portfolio
+  default_pct: 2.0
+
+  # Maximum position size as % of portfolio
+  max_pct: 5.0
+
+# ============================================================================
+# Trading Limits
+# ============================================================================
+limits:
+  # Maximum concurrent open positions
+  max_concurrent_positions: 3
+
+  # Maximum trades per day
+  max_daily_trades: 50
+
+  # Maximum daily loss as % of portfolio (circuit breaker)
+  max_daily_loss_pct: 5.0
+
+  # Maximum position hold time in minutes
+  max_position_hold_time_minutes: 30
+
+# ============================================================================
+# Trailing Stop Configuration
+# ============================================================================
+trailing_stop:
+  # Trailing stop distance for regular assets (%)
+  regular_distance_pct: 0.5
+
+  # Trailing stop distance for meme coins (%)
+  meme_distance_pct: 17.5
+
+  # Activate trailing stop immediately on entry
+  activate_immediately: true
+
+# ============================================================================
+# Stop-Loss Configuration
+# ============================================================================
+stop_loss:
+  # Initial stop-loss distance (%)
+  initial_distance_pct: 0.5
+
+  # Maximum stop-loss distance (%)
+  max_distance_pct: 2.0

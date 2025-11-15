@@ -1,0 +1,38 @@
+# Strategy Parameters Configuration
+# Defines parameters for each trading strategy
+
+# ============================================================================
+# Enabled Strategies
+# ============================================================================
+enabled_strategies:
+  - order_flow_scalping
+  - supply_demand_bounce
+
+# ============================================================================
+# Order Flow Scalping Strategy
+# ============================================================================
+order_flow_scalping:
+  # Enable this strategy
+  enabled: true
+
+  # Buy/sell imbalance threshold ratio (e.g., 2.5:1)
+  imbalance_threshold: 2.5
+
+  # Lookback window in seconds
+  lookback_seconds: 30
+
+  # Minimum trades required in window to generate signal
+  min_trades_in_window: 5
+
+# ============================================================================
+# Supply/Demand Bounce Strategy
+# ============================================================================
+supply_demand_bounce:
+  # Enable this strategy
+  enabled: true
+
+  # Minimum zone strength (0-100 scale)
+  zone_strength_min: 70
+
+  # Only trade fresh (untested) zones
+  use_fresh_zones_only: true

@@ -1,0 +1,65 @@
+# Notification System Configuration
+# Defines email notification settings and priority rules
+
+# ============================================================================
+# SendGrid Email Configuration
+# ============================================================================
+sendgrid:
+  # SendGrid API key (from environment variable)
+  api_key_env: SENDGRID_API_KEY
+
+  # From email address
+  from_email: algo-engine@yourdomain.com
+
+  # Recipient email addresses
+  to_emails:
+    - trader@example.com
+    # Add more recipients as needed
+    # - admin@example.com
+
+# ============================================================================
+# Priority-Based Notification Rules
+# ============================================================================
+priority_rules:
+  # CRITICAL: Immediate delivery with retries
+  critical:
+    send_immediately: true
+    retry_on_failure: true
+    max_retries: 3
+    batch_interval_seconds: null
+
+    # Events that trigger critical notifications
+    events:
+      - OrderFailed              # Order execution failed
+      - MarketDataConnectionLost # Lost connection to market data
+      - SystemError              # Critical system error
+      - PositionLiquidated       # Position was liquidated (futures)
+      - CircuitBreakerTriggered  # Trading halted due to losses
+
+  # WARNING: Batched delivery every 5 minutes
+  warning:
+    send_immediately: false
+    retry_on_failure: false
+    max_retries: 1
+    batch_interval_seconds: 300  # 5 minutes
+
+    # Events that trigger warning notifications
+    events:
+      - HighSlippage            # Executed with high slippage
+      - LowLiquidity            # Low liquidity detected
+      - DataQualityIssue        # Market data quality degraded
+      - RateLimitWarning        # Approaching rate limit
+
+  # INFO: Batched delivery every 10 minutes
+  info:
+    send_immediately: false
+    retry_on_failure: false
+    max_retries: 0
+    batch_interval_seconds: 600  # 10 minutes
+
+    # Events that trigger info notifications
+    events:
+      - TradingSignalGenerated  # New trading signal
+      - PositionOpened          # Position opened
+      - PositionClosed          # Position closed
+      - DailyPnLReport          # Daily P&L summary

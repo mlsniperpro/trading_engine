@@ -1,0 +1,82 @@
+# Main System Configuration
+# This is the primary configuration file for the trading engine
+
+# ============================================================================
+# System Configuration
+# ============================================================================
+system:
+  environment: ${ENVIRONMENT:production}  # development, staging, production
+  log_level: ${LOG_LEVEL:INFO}           # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  data_dir: ${DATA_DIR:/data}            # Data storage directory
+  api_host: ${API_HOST:0.0.0.0}          # API server host
+  api_port: ${API_PORT:8000}             # API server port
+
+# ============================================================================
+# Exchange Configuration
+# ============================================================================
+exchange:
+  default_exchange: binance
+  default_market: spot  # spot or futures
+
+  # Binance Spot Market
+  binance_spot:
+    api_key_env: BINANCE_API_KEY
+    api_secret_env: BINANCE_API_SECRET
+    rate_limit_per_minute: 1200
+    order_type: limit
+    time_in_force: IOC
+
+  # Binance Futures Market
+  binance_futures:
+    api_key_env: BINANCE_FUTURES_API_KEY
+    api_secret_env: BINANCE_FUTURES_API_SECRET
+    rate_limit_per_minute: 2400
+    leverage: 5
+    order_type: limit
+    time_in_force: IOC
+
+  # Bybit Spot Market
+  bybit_spot:
+    api_key_env: BYBIT_API_KEY
+    api_secret_env: BYBIT_API_SECRET
+    rate_limit_per_minute: 1200
+    order_type: limit
+    time_in_force: IOC
+
+  # Bybit Futures Market
+  bybit_futures:
+    api_key_env: BYBIT_API_KEY
+    api_secret_env: BYBIT_API_SECRET
+    rate_limit_per_minute: 1200
+    leverage: 5
+    order_type: limit
+    time_in_force: IOC
+
+# ============================================================================
+# Trading Configuration
+# ============================================================================
+trading:
+  # Trading symbols/pairs
+  symbols:
+    - BTCUSDT
+    - ETHUSDT
+    - SOLUSDT
+
+  # Timeframes
+  timeframes:
+    primary: 1m
+    confirmation:
+      - 5m
+      - 15m
+
+# ============================================================================
+# Decision Engine Configuration
+# ============================================================================
+decision:
+  # Minimum confluence score to generate trading signal (0-10 scale)
+  min_confluence_score: 3.0
+
+  # Enabled strategies
+  enabled_strategies:
+    - order_flow_scalping
+    - supply_demand_bounce
