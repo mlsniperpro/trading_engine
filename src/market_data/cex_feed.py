@@ -9,7 +9,11 @@ from decimal import Decimal
 from typing import Callable, Optional, Dict
 from datetime import datetime
 
-from cryptofeed import FeedHandler
+try:
+    from cryptofeed import FeedHandler
+except ImportError:
+    print("Warning: cryptofeed not installed. Feed will be disabled.")
+    FeedHandler = None
 from cryptofeed.defines import TRADES, L2_BOOK, TICKER
 from cryptofeed.exchanges import Binance, Coinbase, Kraken, Bybit
 

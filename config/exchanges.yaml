@@ -1,0 +1,158 @@
+# Exchange Configuration
+# Configuration for all supported exchanges and DEX aggregators
+
+# Centralized Exchanges (CEX)
+cex:
+  binance:
+    enabled: true
+    api_key: ${BINANCE_API_KEY}
+    api_secret: ${BINANCE_API_SECRET}
+    testnet: false
+    rate_limits:
+      requests_per_second: 10
+      orders_per_second: 2
+    features:
+      spot_trading: true
+      futures_trading: true
+      margin_trading: false
+    pairs:
+      - "BTCUSDT"
+      - "ETHUSDT"
+      - "ADAUSDT"
+      - "SOLUSDT"
+      - "MATICUSDT"
+
+# DEX Aggregators
+dex_aggregators:
+  jupiter:
+    enabled: true
+    chain: "solana"
+    api_key: ${JUPITER_API_KEY}  # Optional
+    base_url: "https://quote-api.jup.ag/v6"
+    rate_limits:
+      requests_per_second: 10
+    features:
+      multi_hop: true
+      slippage_protection: true
+      mev_protection: false
+    supported_tokens:
+      - "SOL"
+      - "USDC"
+      - "USDT"
+      - "RAY"
+      - "SRM"
+
+  oneinch:
+    enabled: true
+    api_key: ${ONEINCH_API_KEY}
+    chains:
+      ethereum:
+        chain_id: 1
+        enabled: true
+        rate_limits:
+          requests_per_second: 5
+      polygon:
+        chain_id: 137
+        enabled: true
+        rate_limits:
+          requests_per_second: 5
+      bsc:
+        chain_id: 56
+        enabled: false
+        rate_limits:
+          requests_per_second: 5
+      arbitrum:
+        chain_id: 42161
+        enabled: true
+        rate_limits:
+          requests_per_second: 5
+    features:
+      pathfinder: true
+      gas_optimization: true
+      mev_protection: true
+    supported_tokens:
+      - "ETH"
+      - "USDC"
+      - "USDT"
+      - "DAI"
+      - "WBTC"
+
+# Direct DEX Integrations (for specific strategies)
+dex_direct:
+  uniswap_v3:
+    enabled: false
+    chain: "ethereum"
+    router_address: "0xE592427A0AEce92De3Edee1F18E0157C05861564"
+    features:
+      concentrated_liquidity: true
+      multiple_fee_tiers: true
+    fee_tiers: [100, 500, 3000, 10000]  # 0.01%, 0.05%, 0.3%, 1%
+
+  raydium:
+    enabled: false
+    chain: "solana"
+    program_id: "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8"
+    features:
+      amm: true
+      order_book: false
+
+# Exchange Selection Strategy
+routing:
+  # Primary aggregator selection
+  primary_aggregator:
+    solana: "jupiter"
+    ethereum: "oneinch"
+    polygon: "oneinch"
+    bsc: "oneinch"
+    arbitrum: "oneinch"
+
+  # Fallback routing
+  fallbacks:
+    - type: "direct_dex"
+      threshold_amount: 10000  # Use direct DEX for amounts over $10k
+    - type: "cex"
+      threshold_amount: 50000  # Use CEX for amounts over $50k
+
+  # Route optimization
+  optimization:
+    max_price_impact: 0.05  # 5% maximum price impact
+    max_slippage: 0.01      # 1% maximum slippage
+    gas_optimization: true
+    mev_protection: true
+
+# Risk Management
+risk:
+  position_limits:
+    max_position_size_usd: 100000
+    max_daily_volume_usd: 500000
+  
+  slippage_protection:
+    default_slippage_bps: 50  # 0.5%
+    max_slippage_bps: 300     # 3%
+  
+  timeout_settings:
+    quote_timeout_seconds: 30
+    execution_timeout_seconds: 120
+    confirmation_timeout_seconds: 300
+
+# Monitoring and Alerts
+monitoring:
+  price_deviation_threshold: 0.02  # 2%
+  execution_failure_threshold: 0.05  # 5%
+  alert_channels:
+    - email
+    - webhook
+
+# Fee Configuration
+fees:
+  jupiter:
+    platform_fee_bps: 0  # Jupiter doesn't charge platform fees
+    gas_estimate_multiplier: 1.2
+  
+  oneinch:
+    platform_fee_bps: 0  # Fees included in quotes
+    gas_estimate_multiplier: 1.1
+  
+  binance:
+    maker_fee_bps: 10   # 0.1%
+    taker_fee_bps: 10   # 0.1%
